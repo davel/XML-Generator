@@ -1,5 +1,10 @@
 XML::Generator - A module to help in generating XML documents
 
+Version 0.96 - 2004.2.29
+- More documentation fixups.
+- Only check for xml() subs under strict conformance.
+- Small performance optimizations.
+
 Version 0.95 - 2004.2.29
 - Enhanced STACKED AUTOLOAD feature to provide a default import()
 - Documentation fixups.

@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = '0.95';
+$VERSION = '0.96';
 
 =head1 NAME
 
@@ -42,11 +42,11 @@ Either of the above yield:
 In general, once you have an XML::Generator object, you then simply call
 methods on that object named for each XML tag you wish to generate. 
 
-By default, C<use XML::Generator;> tries to export an C<AUTOLOAD> subroutine to
-your package, which allows you to simply call any undefined methods in your
-current package to get pieces of XML.  If you already have an C<AUTOLOAD> defined
-then XML::Generator will not override it unless you tell it to.
-See L<"STACKABLE AUTOLOADs">.
+By default, C<use XML::Generator;> tries to export an C<AUTOLOAD>
+subroutine to your package, which allows you to simply call any undefined
+methods in your current package to get pieces of XML.  If you already
+have an C<AUTOLOAD> defined then XML::Generator will not override it
+unless you tell it to.  See L<"STACKABLE AUTOLOADs">.
 
 Say you want to generate this XML:
 
@@ -165,43 +165,48 @@ Equivalent to
 
 =head2 :[no]import
 
-Force the exporting behavior of C<use XML::Generator;>.  Generates a warning
-when passed as an argument to C<new>.
+Force the exporting behavior of C<use XML::Generator;>.  Generates a
+warning when passed as an argument to C<new>.
 
 =head2 :stacked
 
 Implies :import, but if there is already an C<AUTOLOAD> defined, the
-overriding C<AUTOLOAD> will still give it a chance to run.  See
-L<"STACKED AUTOLOADs">. Generates a warning when passed as an argument to C<new>.
+overriding C<AUTOLOAD> will still give it a chance to run.  See L<"STACKED
+AUTOLOADs">. Generates a warning when passed as an argument to C<new>.
 
 =head2 namespace
 
 B<WARNING!>
 
-As of version 0.94, this must be an array reference containing one or two values.
-If the array contains one value, it should be a URI and will be the value of an
-'xmlns' attribute in the top-level tag.  If there are two elements, the first should
-be the namespace tag prefix and the second the URI of the namespace.  This will enable
-behavior similar to the namespace behavior in previous versions; the tag prefix will be
-applied to each tag and attribute name.  In addition, an xmlns:NAME="URI" attribute will
-be added to the top-level tag.  This is consistent with the XML Namespaces Recommendation;
-the prior behavior was not.
+As of version 0.94, this must be an array reference containing one or
+two values.  If the array contains one value, it should be a URI and will
+be the value of an 'xmlns' attribute in the top-level tag.  If there
+are two elements, the first should be the namespace tag prefix and the
+second the URI of the namespace.  This will enable behavior similar
+to the namespace behavior in previous versions; the tag prefix will be
+applied to each tag and attribute name.  In addition, an xmlns:NAME="URI"
+attribute will be added to the top-level tag.  This is consistent with
+the XML Namespaces Recommendation; the prior behavior was not.
 
-To avoid overly verbose output, XML::Generator takes care to only output
-the 'xmlns' or 'xmlns:NAME' attribute in the top-level tag, since namespaces are
-inherited.  Actually, XML::Generator outputs the 'xmlns' or 'xmlns:NAME' attribute
-in the top-most tag when it is first stringified, which under normal usage should
-map to the top-level tag, but your mileage may vary if you are processing intermediate
-results.  All this means is that you might get more 'xmlns' or 'xmlns:NAME' attributes
-than are necessary, but the results will still be semantically correct.
+To avoid overly verbose output, XML::Generator takes care to only
+output the 'xmlns' or 'xmlns:NAME' attribute in the top-level tag, since
+namespaces are inherited.  Actually, XML::Generator outputs the 'xmlns' or
+'xmlns:NAME' attribute in the top-most tag when it is first stringified,
+which under normal usage should map to the top-level tag, but your
+mileage may vary if you are processing intermediate results.  All this
+means is that you might get more 'xmlns' or 'xmlns:NAME' attributes than
+are necessary, but the results will still be semantically correct.
 
 The value of this option is used as the global default namespace.
 For example,
 
     my $html = XML::Generator->new(
                  pretty    => 2,
-                 namespace => ['HTML' => "http://www.w3.org/TR/REC-html40"]);
-    print $html->html($html->body($html->font({ face => 'Arial' }, "Hello, there")));
+                 namespace => [HTML => "http://www.w3.org/TR/REC-html40"]);
+    print $html->html(
+	    $html->body(
+	      $html->font({ face => 'Arial' },
+			  "Hello, there")));
 
 would yield
 
@@ -216,13 +221,16 @@ Here the same example except without all the prefixes:
     my $html = XML::Generator->new(
 		 pretty    => 2,
                  namespace => "http://www.w3.org/TR/REC-html40");
-    print $html->html($html->body($html->font({ 'face' => 'Arial' }, "Hello, there")));
+    print $html->html(
+	    $html->body(
+	      $html->font({ 'face' => 'Arial' },
+			    "Hello, there")));
 
 would yield
 
    <html xmlns="http://www.w3.org/TR/REC-html40">
      <body>
-        <font HTML:face="Arial">Hello, there</font>
+        <font face="Arial">Hello, there</font>
      </body>
    </html>
 
@@ -230,25 +238,32 @@ would yield
 
 The contents and the values of each attribute have any illegal XML
 characters escaped if this option is supplied.  If the value is 'always',
-then &, < and > (and " within attribute values) will be converted into the
-corresponding XML entity.  If the value is any other true value, then the
-escaping will be turned off character-by-character if the character in question
-is preceded by a backslash, or for the entire string if it is supplied as a
-scalar reference.  So, for example,
+then &, < and > (and " within attribute values) will be converted into
+the corresponding XML entity.  If the value is any other true value, then
+the escaping will be turned off character-by-character if the character
+in question is preceded by a backslash, or for the entire string if it
+is supplied as a scalar reference.  So, for example,
 
-   my $a = XML::Generator->new(escape => 'always');
-   my $b = XML::Generator->new(escape => 'true');
-   print $a->foo('<', $b->bar('3 \> 4', \" && 6 < 5"), '\&', '>');
+	use XML::Generator escape => 'always';
 
-would yield
+	one('<');    # <one>&lt;</one>
+	two('\&');   # <two>\&amp;</two>
+	three(\'>'); # <three>&gt;</three> (scalar refs always allowed)
 
-   <foo>&lt;<bar>3 > 4 && 6 < 5</bar>\&amp;&gt;</foo>
+but
 
-By default, high-bit data will be passed through unmodified, so that UTF-8 data
-can be generated with pre-Unicode perls.  If you know that your data is ASCII,
-use the value 'high-bit' for the escape option and bytes with the high bit set
-will be turned into numeric entities.  You can combine this functionality with
-the other escape options by comma-separating the values:
+	use XML::Generator escape => 1;
+
+	one('<');    # <one>&lt;</one>
+	two('\&');   # <two>&</two>
+	three(\'>'); # <three>></three> (aiee!)
+
+By default, high-bit data will be passed through unmodified, so that
+UTF-8 data can be generated with pre-Unicode perls.  If you know that
+your data is ASCII, use the value 'high-bit' for the escape option
+and bytes with the high bit set will be turned into numeric entities.
+You can combine this functionality with the other escape options by
+comma-separating the values:
 
   my $a = XML::Generator->new(escape => 'always,high-bit');
   print $a->foo("<\242>");
@@ -257,10 +272,10 @@ yields
 
   <foo>&lt;&#162;&gt;</foo>
 
-Because XML::Generator always uses double quotes ("") around attribute values, it
-does not escape single quotes.  If you want single quotes inside attribute values
-to be escaped, use the value 'apos' along with 'always' or 'true' for the escape
-option.  For example:
+Because XML::Generator always uses double quotes ("") around attribute
+values, it does not escape single quotes.  If you want single quotes
+inside attribute values to be escaped, use the value 'apos' along with
+'always' or 'true' for the escape option.  For example:
 
     my $gen = XML::Generator->new(escape => 'always,apos');
     print $gen->foo({'bar' => "It's all good"});
@@ -307,11 +322,11 @@ See L<"XML CONFORMANCE"> and L<"SPECIAL TAGS"> for more information.
 
 =head2 allowed_xml_tags
 
-If you have specified 'conformance' => 'strict' but need to use tags that
-start with 'xml', you can supply a reference to an array containing those
-tags and they will be accepted without error.  It is not an error to supply
-this option if 'conformance' => 'strict' is not supplied, but it will have
-no effect.
+If you have specified 'conformance' => 'strict' but need to use tags
+that start with 'xml', you can supply a reference to an array containing
+those tags and they will be accepted without error.  It is not an error
+to supply this option if 'conformance' => 'strict' is not supplied,
+but it will have no effect.
 
 =head2 empty
 
@@ -335,7 +350,8 @@ is just a single undef argument, and <x></x> otherwise.
 
 =head2 version
 
-Sets the default XML version for use in XML declarations.  See L<"xmldecl"> below.
+Sets the default XML version for use in XML declarations.
+See L<"xmldecl"> below.
 
 =head2 encoding
 
@@ -343,8 +359,8 @@ Sets the default encoding for use in XML declarations.
 
 =head2 dtd
 
-Specify the dtd.  The value should be an array reference with three values; the type,
-the name and the uri.
+Specify the dtd.  The value should be an array reference with three
+values; the type, the name and the uri.
 
 =cut
 
@@ -372,8 +388,7 @@ sub import {
   my $type = shift;
 
   if (ref $type && defined $tag_factory{$type}) {
-    unshift @_, 'import';
-    unshift @_, $type;
+    unshift @_, $type, 'import';
     goto &{ $tag_factory{$type} };
   }
 
@@ -407,15 +422,14 @@ sub import {
 	# The tag is whatever our sub name is.
 	my($tag) = our $AUTOLOAD =~ /.*::(.*)/;
 
-	if ($tag =~ /^xml/) {
+	if ($tag =~ /^xml/ && $this->{'conformance'} eq 'strict') {
 	  if (my $func = $this->can($tag)) {
 	    unshift @_, $this;
 	    goto &$func;
 	  }
 	}
 
-	unshift @_, $tag;
-	unshift @_, $this;
+	unshift @_, $this, $tag;
 
 	goto &{ $tag_factory{$this} };
       };
@@ -514,8 +528,7 @@ sub AUTOLOAD {
   # The tag is whatever our sub name is.
   my ($tag) = our $AUTOLOAD =~ /.*::(.*)/;
 
-  unshift @_, $tag;
-  unshift @_, $this;
+  unshift @_, $this, $tag;
 
   goto &{ $tag_factory{$this} };
 }
@@ -763,12 +776,13 @@ sub xml {
 
 =head1 CREATING A SUBCLASS
 
-For a simpler way to implement subclass-like behavior, see L<"STACKABLE AUTOLOADs">.
+For a simpler way to implement subclass-like behavior, see L<"STACKABLE
+AUTOLOADs">.
 
-At times, you may find it desireable to subclass XML::Generator. For example,
-you might want to provide a more application-specific interface to the XML
-generation routines provided. Perhaps you have a custom database application
-and would really like to say:
+At times, you may find it desireable to subclass XML::Generator. For
+example, you might want to provide a more application-specific interface
+to the XML generation routines provided. Perhaps you have a custom
+database application and would really like to say:
 
    my $dbxml = new XML::Generator::MyDatabaseApp;
    print $dbxml->xml($dbxml->custom_tag_handler(@data));
@@ -779,8 +793,8 @@ for a tag you want generated, such as authors(), whose behavior changes
 based on the contents (perhaps creating recursive definitions in the
 case of multiple elements).
 
-Creating a subclass of XML::Generator is actually relatively straightforward,
-there are just three things you have to remember:
+Creating a subclass of XML::Generator is actually relatively
+straightforward, there are just three things you have to remember:
 
    1. All of the useful utilities are in XML::Generator::util.
 
@@ -855,23 +869,24 @@ XML::Generator::util package name. This is because AUTOLOAD is used by
 the main XML::Generator package to create tags. Simply calling parse_args()
 will result in a set of XML tags called <parse_args>.
 
-Finally, remember that since you are subclassing XML::Generator, you do not
-need to provide your own new() method. The one from XML::Generator is designed
-to allow you to properly subclass it.
+Finally, remember that since you are subclassing XML::Generator, you do
+not need to provide your own new() method. The one from XML::Generator
+is designed to allow you to properly subclass it.
 
 =head1 STACKABLE AUTOLOADs
 
-As a simpler alternative to traditional subclassing, the C<AUTOLOAD> that C<use
-XML::Generator;> exports can be configured to work with a pre-defined C<AUTOLOAD>
-with the ':stacked' option.  Simply ensure that your C<AUTOLOAD> is defined before
-C<use XML::Generator ':stacked';> executes.  The C<AUTOLOAD> will get a chance to
-run first; the subroutine name will be in your C<$AUTOLOAD> as normal.  Return an
-empty list to let the default XML::Generator C<AUTOLOAD> run or any other value to
-abort it.  This value will be returned as the result of the original method call.
+As a simpler alternative to traditional subclassing, the C<AUTOLOAD>
+that C<use XML::Generator;> exports can be configured to work with a
+pre-defined C<AUTOLOAD> with the ':stacked' option.  Simply ensure that
+your C<AUTOLOAD> is defined before C<use XML::Generator ':stacked';>
+executes.  The C<AUTOLOAD> will get a chance to run first; the subroutine
+name will be in your C<$AUTOLOAD> as normal.  Return an empty list to let
+the default XML::Generator C<AUTOLOAD> run or any other value to abort it.
+This value will be returned as the result of the original method call.
 
-If there is no C<import> defined, XML::Generator will create one.  All that this
-C<import> does is export AUTOLOAD, but that lets your package be used as if it
-were a subclass of XML::Generator.
+If there is no C<import> defined, XML::Generator will create one.
+All that this C<import> does is export AUTOLOAD, but that lets your
+package be used as if it were a subclass of XML::Generator.
 
 An example will help:
 
@@ -935,8 +950,8 @@ sub parse_args {
   my($attr) = ('');
 
   # check for supplied namespace
-  if (defined($args[0]) && ref $args[0] eq 'ARRAY') {
-    $namespace = [@{shift @args}];
+  if (ref $args[0] eq 'ARRAY') {
+    $namespace = [ @{shift @args} ];
     if (@$namespace > 2) {
       croak "too many arguments for namespace";
     }
@@ -944,13 +959,13 @@ sub parse_args {
 
   # get globally-set namespace (from new)
   unless ($namespace) {
-    $namespace = [@{$this->{'namespace'} || []}];
+    $namespace = [ @{ $this->{'namespace'} || [] } ];
   }
 
-  if ($namespace && @$namespace == 1) { unshift @$namespace, undef }
+  if (@$namespace == 1) { unshift @$namespace, undef }
 
   # check for supplied attributes
-  if (defined($args[0]) && ref $args[0] eq 'HASH') {
+  if (ref $args[0] eq 'HASH') {
     $attr = shift @args;
   }
 
