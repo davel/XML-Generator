@@ -1,18 +1,9 @@
-XML::Generator - A simple module to help in generating XML documents
+XML::Generator - A module to help in generating XML documents
 
-Version 0.6 - 2000.06.11
+Version 0.7 - 2000.06.13
 
-- Cleaned-up, modularized rewrite courtesy of Bron Gondwana
-  (perlcode@brong.net)
-- XML::Generator now returns objects blessed into XML::Generator::auto
-  which contains only an AUTOLOAD that redirects requests to the
-  proper method in XML::Generator.
-- A new option is available in the constructor to force stricter
-  conformance to the XML specification ('conformance' => 'strict').
-  This also enables some special tags; "xmlpi", "xmlcmnt", "xmldecl"
-  and "xmlcdata" that can be used to generate, respectively, processing
-  instructions, comments, the XML declaration, and character data
-  sections. 
+- Pretty-printing patch from Bron Gondwana
+- Undefined warnings patch from Bron Gondwana
 
 Copyright 1999-2000 Benjamin Holzman. All rights reserved.
 This program is free software; you can redistribute it and/or

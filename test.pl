@@ -1,3 +1,4 @@
+#!/usr/bin/perl -w
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
 
@@ -6,7 +7,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..29\n"; }
+BEGIN { $| = 1; print "1..30\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use XML::Generator;
 $loaded = 1;
@@ -41,15 +42,15 @@ $xml = $x->new(3);
 $xml eq '<new>3</new>' or print "not ";
 print "ok 7\n";
 
-$xml = $x->foo([baz]);
+$xml = $x->foo(['baz']);
 $xml eq '<baz:foo />' or print "not ";
 print "ok 8\n";
 
-$xml = $x->foo([baz,bam]);
+$xml = $x->foo(['baz','bam']);
 $xml eq '<baz:bam:foo />' or print "not ";
 print "ok 9\n";
 
-$xml = $x->foo([baz],{'bar'=>42},3);
+$xml = $x->foo(['baz'],{'bar'=>42},3);
 $xml eq '<baz:foo baz:bar="42">3</baz:foo>' or print "not ";
 print "ok 10\n";
 
@@ -154,3 +155,11 @@ print "ok 28\n";
 $xml = $x->xmlcdata("test");
 $xml eq '<![CDATA[test]]>' or print "not ";
 print "ok 29\n";
+
+$x = new XML::Generator 'pretty' => 2;
+$xml = $x->foo($x->bar());
+$xml eq
+'<foo>
+  <bar />
+</foo>' or print "not ";
+print "ok 30\n";

@@ -2,10 +2,10 @@ package XML::Generator;
 
 use strict;
 use Carp;
-use vars qw/$VERSION $AUTOLOAD %xmltags/;
+use vars qw/$VERSION $AUTOLOAD %xmltags @allowed_options/;
 use constant PERL_VERSION => $];
 
-$VERSION = 0.6;
+$VERSION = 0.7;
 
 =head1 NAME
 
@@ -15,7 +15,9 @@ XML::Generator - Perl extension for generating XML
 
   use XML::Generator;
   
-  my $x = XML::Generator->new('escape' => 'always', 'conformance' => 'strict');
+  my $x = XML::Generator->new('escape' => 'always',
+                              'conformance' => 'strict'
+                             );
   print $x->foo($x->bar({baz=>3}, $x->bam()),
 		$x->bar(['qux'],"Hey there,\n", "world"));
   __END__
@@ -37,10 +39,10 @@ generate this XML:
 	  <job>Accountant</job>
 	</person>
 
-Here's a snippet of code that does the job, modulo the pretty-printing:
+Here's a snippet of code that does the job, complete with pretty-printing:
 
 	use XML::Generator;
-	my $gen = XML::Generator->new('escape' => 'always');
+	my $gen = XML::Generator->new('escape' => 'always', 'pretty' => 2);
 	my $xml = $gen->person(
 		    $gen->name("Bob"),
 		    $gen->age(34),
@@ -77,11 +79,11 @@ Here's an example to show how the attribute and namespace parameters work:
 		 $gen->deposit(['transaction'], {'date' => '1999.04.03'},
 			       1500));
 
-This generates (again, modulo pretty-printing):
+This generates:
 
   <account type="checking" id="34578">
     <transaction:open>2000</transaction:open>
-    <transaction:deposit date="1999.04.03">1500</transaction:deposit>
+    <transaction:deposit transaction:date="1999.04.03">1500</transaction:deposit>
   </account>
 
 =head1 CONSTRUCTOR
@@ -119,6 +121,24 @@ would yield
 
 	<foo>&lt;<bar>3 > 4</bar>\&amp;&gt;</foo>
 
+=head2 pretty
+
+To have nice pretty printing of the output XML (great for config files
+that you might also want to edit by hand), pass an integer for the
+number of spaces per level of indenting, eg.
+
+       my $gen = XML::Generator->new('pretty' => 2);
+        print $gen->foo($gen->bar('baz'),
+                       $gen->qux({'tricky' => 'no'}, 'quux')
+                       );
+
+would yield
+
+       <foo>
+         <bar>baz</bar>
+         <qux tricky="no">quux</qux>
+       </foo>
+
 =head2 conformance
 
 If the value of this option is 'strict', a number of syntactic
@@ -133,9 +153,27 @@ See L<"XML CONFORMANCE"> and L<"SPECIAL TAGS"> for more information.
 
 =cut
 
+## Alllow only these options:
+# Only the options allowed by this list are entered into the object.
+# If no value is provided, the value will be set to '' (empty string)
+
+@allowed_options = qw(
+  conformance
+  dtd
+  encoding
+  escape
+  namespace
+  pretty
+  version
+);
+
 sub new {
   my ($class, %args) = @_;
-  return bless \%args, 'XML::Generator::auto';
+  my %options = map { $_ => ($args{$_} || '') } @allowed_options;
+  if ($options{'dtd'}) {
+    $options{'dtdtree'} = parse_dtd($options{'dtd'});
+  }
+  return bless \%options, 'XML::Generator::auto';
 }
 
 sub tag {
@@ -205,7 +243,21 @@ sub tag {
 
   if (@args) {
     $xml .= '>';
-    $xml .= join $, || '', @args;
+    if ($this->{'pretty'}) {
+      my $prettyend = '';
+      my $spaces = " " x $this->{'pretty'};
+      foreach my $arg (@args) {
+        if (UNIVERSAL::isa($arg, 'XML::Generator::overload')) {
+          $xml .= "\n$spaces";
+          $prettyend = "\n";
+          $arg =~ s/\n/\n$spaces/egs;
+        }
+        $xml .= "$arg";
+      }
+      $xml .= $prettyend;
+    } else {
+      $xml .= join $, || '', @args;
+    }
     $xml .= "</$namespace$tag>";
   } else {
     $xml .= ' />';
@@ -399,6 +451,38 @@ sub ck_syntax {
   if ($name =~ /^xml/i) {
     croak "names beginning with 'xml' are reserved by the W3C";
   }
+}
+
+my %DTDs;
+my $DTD;
+
+sub parse_dtd {
+  my($dtd) = @_;
+
+  my($root, $type, $name, $uri);
+  unless (ref $dtd eq "ARRAY") {
+    croak "dtd must be supplied as an array ref";
+  }
+  ($root, $type) = @{$dtd}[0,1];
+  if ($type eq 'PUBLIC') {
+    ($name, $uri) = @{$dtd}[2,3];
+  } elsif ($type eq 'SYSTEM') {
+    $uri = $dtd->[2];
+  } else {
+    croak "unknown dtd type [$type]";
+  }
+  return $DTDs{$uri} if $DTDs{$uri};
+
+  my $dtd_text = get_dtd($uri);
+
+# parse DTD into $DTD (not implemented yet)
+
+  return $DTDs{$uri} = $DTD;
+}
+
+sub get_dtd {
+  my($uri) = @_;
+  return;
 }
 
 #########################################
