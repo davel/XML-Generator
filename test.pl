@@ -7,7 +7,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..34\n"; }
+BEGIN { $| = 1; print "1..40\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use XML::Generator;
 $loaded = 1;
@@ -91,7 +91,7 @@ print "ok 17\n";
 
 $x = new XML::Generator 'conformance' => 'strict';
 $xml = $x->xmldecl();
-$xml eq '<?xml version="1.0" standalone="yes"?>' or print "not ";
+$xml eq qq(<?xml version="1.0" standalone="yes"?>\n) or print "not ";
 print "ok 18\n";
 
 $xml = $x->xmlcmnt("test");
@@ -102,7 +102,7 @@ $x = new XML::Generator 'conformance' => 'strict',
 			'version' => '1.1',
 			'encoding' => 'iso-8859-2';
 $xml = $x->xmldecl();
-$xml eq '<?xml version="1.1" encoding="iso-8859-2" standalone="yes"?>' or print "not ";
+$xml eq qq(<?xml version="1.1" encoding="iso-8859-2" standalone="yes"?>\n) or print "not ";
 print "ok 20\n";
 
 $xml = $x->xmlpi("target", "option" => "value");
@@ -149,7 +149,8 @@ $x = new XML::Generator 'conformance' => 'strict',
 $xml = $x->xmldecl();
 $xml eq 
 '<?xml version="1.0" standalone="no"?>
-<!DOCTYPE foo SYSTEM "http://foo.com/foo">' or print "not ";
+<!DOCTYPE foo SYSTEM "http://foo.com/foo">
+' or print "not ";
 print "ok 28\n";
 
 $xml = $x->xmlcdata("test");
@@ -166,7 +167,7 @@ print "ok 30\n";
 
 $x = new XML::Generator 'conformance' => 'strict';
 $xml = $x->foo(42);
-$x->xml($xml);
+$xml = $x->xml($xml);
 $xml eq
 '<?xml version="1.0" standalone="yes"?>
 <foo>42</foo>' or print "not ";
@@ -181,7 +182,7 @@ print "ok 32\n";
 eval {
   $x->xml(3);
 };
-$@ =~ /not an XML document/ or print "not ";
+$@ =~ /arguments to xml/ or print "not ";
 print "ok 33\n";
 
 eval {
@@ -189,3 +190,44 @@ eval {
 };
 $@ =~ /cannot embed/ or print "not ";
 print "ok 34\n";
+
+$x = new XML::Generator 'pretty' => 2;
+$xml = $x->foo($x->bar($x->baz()));
+$xml eq
+'<foo>
+  <bar>
+    <baz />
+  </bar>
+</foo>' or print "not ";
+print "ok 35\n";
+
+$xml = $x->foo(\"\n<bar />");
+$xml eq
+'<foo>
+<bar /></foo>' or print "not ";
+print "ok 36\n";
+
+$x = new XML::Generator 'empty' => 'close';
+$xml = $x->foo();
+$xml eq '<foo></foo>' or print "not ";
+print "ok 37\n";
+
+$x = new XML::Generator 'empty' => 'ignore';
+$xml = $x->foo();
+$xml eq '<foo>' or print "not ";
+print "ok 38\n";
+
+eval {
+  $x = new XML::Generator 'empty' => 'ignore', 'conformance' => 'strict';
+};
+$@ =~ /not allowed/ or print "not ";
+print "ok 39\n";
+
+$x = new XML::Generator 'conformance' => 'strict';
+$xml = $x->foo();
+$cmnt = $x->xmlcmnt("comment");
+$pi = $x->xmlpi("foo");
+$xml = $x->xml($cmnt, $xml, $pi);
+$xml eq '<?xml version="1.0" standalone="yes"?>
+<!-- comment --><foo /><?foo?>' or print "not ";
+print "ok 40\n";

@@ -48,3 +48,16 @@ Revision history for Perl extension XML::Generator.
 	- Arguments passed as scalar refs will not be escaped, even if the
 	  XML::Generator object was constructed with the 'escape' => "always"
 	  option.
+
+0.9   Sat Nov 18 11:13:24 2000
+	- Massive code reorganization to support subclassing, courtesy of
+	  Nathan Winger (nate@nateware.com)
+	- New instantiation option, 'empty', to control how empty tags are
+	  rendered.
+	- Improved internal representation for improved performance
+	  ( $gen->foo($gen->bar($gen->baz( $really_big_string ))) used to copy
+	  $really_big_string three times; as long as the 'pretty' option is not
+	  supplied, this is no longer the case. )
+	- Fixed xml() tag to allow comments and processing instructions before
+	  and/or after the xml document.
+	- New special tag, xmldtd(), which used to be part of xmldecl().
