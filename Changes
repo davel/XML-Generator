@@ -110,3 +110,6 @@ Revision history for Perl extension XML::Generator.
 
 0.97  Mon Mar  1 15:22:00 2004
 	- Fixed bugs in DOM.t reported by David Wheeler.
+
+0.98  Mon Mar  1 18:26:00 2004
+	- Fixed bug in DOM.t when XML::DOM not installed (caused by fix in 0.97)

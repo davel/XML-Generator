@@ -9,7 +9,7 @@ unless (eval "use XML::DOM; 1;") {
 
 plan tests => 35;
 
-use XML::Generator::DOM ();
+require XML::Generator::DOM;
 
 my $x = new XML::Generator::DOM;
 ok($x);
