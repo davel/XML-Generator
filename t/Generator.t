@@ -2,7 +2,7 @@
 
 use Test;
 
-BEGIN { $| = 1; plan tests => 77; }
+BEGIN { $| = 1; plan tests => 78; }
 
 use XML::Generator ();
 ok(1);
@@ -356,3 +356,24 @@ ok($xml, '<foo xmlns:B="bee" xmlns="A"><bar xmlns=""><B:baz /></bar></foo>');
 $D = XML::Generator->new();
 $xml = $D->foo(['A'],$D->bar([undef],$D->baz(['B'=>'bee'])));
 ok($xml, '<foo xmlns:B="bee" xmlns="A"><bar xmlns=""><B:baz /></bar></foo>');
+
+package MyGenerator;
+
+sub AUTOLOAD {
+  my($tag) = our $AUTOLOAD =~ /.*::(.*)/;
+
+  return '&copy;' if $tag eq 'copy';
+  return;
+}
+
+use XML::Generator qw(:pretty :stacked);
+
+package Test8;
+
+MyGenerator->import();
+
+$xml = html(title("My Title",copy()));
+::ok($xml,
+'<html>
+  <title>My Title&copy;</title>
+</html>');

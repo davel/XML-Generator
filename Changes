@@ -98,3 +98,7 @@ Revision history for Perl extension XML::Generator.
 	- Changed XML comment behavior when escaping '--' to escape both dashes.
 	- Fixed memory leak in constructor. Bug #4513.
 	- Fixed bug in t/DOM.t that caused it to fail when DOM.pm was installed. Bug #3220.
+
+0.95  Sun Feb 29 22:21:00 2004
+	- Enhanced STACKED AUTOLOAD feature to provide a default import()
+	- Documentation fixups.

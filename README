@@ -1,6 +1,10 @@
 XML::Generator - A module to help in generating XML documents
 
-Version 0.93 - 2004.2.29
+Version 0.95 - 2004.2.29
+- Enhanced STACKED AUTOLOAD feature to provide a default import()
+- Documentation fixups.
+
+Version 0.94 - 2004.2.29
 - FIXED IMPLEMENTATION OF NAMESPACES!! XML::Generator is now conformant.
   Note that the semantics of namespaces have changed!
 - Implemented AUTOLOAD exporting to simplify syntax.
@@ -17,4 +21,3 @@ Version 0.93 - 2004.2.29
 Copyright 1999-2004 Benjamin Holzman. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
-

@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = '0.94';
+$VERSION = '0.95';
 
 =head1 NAME
 
@@ -42,9 +42,9 @@ Either of the above yield:
 In general, once you have an XML::Generator object, you then simply call
 methods on that object named for each XML tag you wish to generate. 
 
-By default, C<use XML::Generator;> tries to export an B<AUTOLOAD> subroutine to
+By default, C<use XML::Generator;> tries to export an C<AUTOLOAD> subroutine to
 your package, which allows you to simply call any undefined methods in your
-current package to get pieces of XML.  If you already have an B<AUTOLOAD> defined
+current package to get pieces of XML.  If you already have an C<AUTOLOAD> defined
 then XML::Generator will not override it unless you tell it to.
 See L<"STACKABLE AUTOLOADs">.
 
@@ -166,13 +166,13 @@ Equivalent to
 =head2 :[no]import
 
 Force the exporting behavior of C<use XML::Generator;>.  Generates a warning
-when passed as an argument to B<new>.
+when passed as an argument to C<new>.
 
 =head2 :stacked
 
-Implies :import, but if there is already an B<AUTOLOAD> defined, the
-overriding B<AUTOLOAD> will still give it a chance to run.  See
-L<"STACKED AUTOLOADs">. Generates a warning when passed as an argument to B<new>.
+Implies :import, but if there is already an C<AUTOLOAD> defined, the
+overriding C<AUTOLOAD> will still give it a chance to run.  See
+L<"STACKED AUTOLOADs">. Generates a warning when passed as an argument to C<new>.
 
 =head2 namespace
 
@@ -419,6 +419,16 @@ sub import {
 
 	goto &{ $tag_factory{$this} };
       };
+
+    # convenience feature for stacked autoloads; give them
+    # an import() that aliases AUTOLOAD.
+    if ($STACKED && ! defined *{"${pkg}::import"}{CODE}) {
+      *{"${pkg}::import"} =
+        sub {
+	  my $p = caller;
+	  *{"${p}::AUTOLOAD"} = \&{"${pkg}::AUTOLOAD"};
+	};
+    }
   }
 
   return;
@@ -851,13 +861,47 @@ to allow you to properly subclass it.
 
 =head1 STACKABLE AUTOLOADs
 
-As a simpler alternative to traditional subclassing, the B<AUTOLOAD> that C<use
-XML::Generator;> exports can be configured to work with a pre-defined B<AUTOLOAD>
-with the ':stacked' option.  Simply ensure that your B<AUTOLOAD> is defined before
-C<use XML::Generator ':stacked';> executes.  The B<AUTOLOAD> will get a chance to
+As a simpler alternative to traditional subclassing, the C<AUTOLOAD> that C<use
+XML::Generator;> exports can be configured to work with a pre-defined C<AUTOLOAD>
+with the ':stacked' option.  Simply ensure that your C<AUTOLOAD> is defined before
+C<use XML::Generator ':stacked';> executes.  The C<AUTOLOAD> will get a chance to
 run first; the subroutine name will be in your C<$AUTOLOAD> as normal.  Return an
-empty list to let the default XML::Generator B<AUTOLOAD> run or any other value to
-abort it.
+empty list to let the default XML::Generator C<AUTOLOAD> run or any other value to
+abort it.  This value will be returned as the result of the original method call.
+
+If there is no C<import> defined, XML::Generator will create one.  All that this
+C<import> does is export AUTOLOAD, but that lets your package be used as if it
+were a subclass of XML::Generator.
+
+An example will help:
+
+	package MyGenerator;
+
+	my %entities = ( copy => '&copy;',
+			 nbsp => '&nbsp;', ... );
+
+	sub AUTOLOAD {
+	  my($tag) = our $AUTOLOAD =~ /.*::(.*)/;
+
+	  return $entities{$tag} if defined $entities{$tag};
+	  return;
+	}
+
+	use XML::Generator qw(:pretty :stacked);
+
+This lets someone do:
+
+	use MyGenerator;
+
+	print html(head(title("My Title", copy())));
+
+Producing:
+
+	<html>
+	  <head>
+	    <title>My Title&copy;</title>
+	  </head>
+	</html>
 
 =cut
 
