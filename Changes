@@ -84,3 +84,17 @@ Revision history for Perl extension XML::Generator.
 0.93  Wed Jan 22 10:41:00 2003
 	- Added 'high-bit' option to escape to allow escaping of upper ASCII.
 	- Fixed a test bug that assumed the order of elements in a hash.
+
+0.94  Sun Feb 29 14:21:00 2004
+	- FIXED IMPLEMENTATION OF NAMESPACES!! XML::Generator is now conformant.
+	  Note that the semantics of namespaces have changed!
+	- Implemented AUTOLOAD exporting to simplify syntax.
+	- Implement STACKED AUTOLOADs to simplify sub-classing.
+	- Added "macro" options ':standard', ':std', ':strict' and ':pretty'.
+	- Added new 'allowed_xml_tags' option to allow tags starting with 'xml'
+	  under strict conformance.
+	- Documented the 'version', 'encoding' and 'dtd' options.
+	- Added arguments to xmldecl() to allow more control.
+	- Changed XML comment behavior when escaping '--' to escape both dashes.
+	- Fixed memory leak in constructor. Bug #4513.
+	- Fixed bug in t/DOM.t that caused it to fail when DOM.pm was installed. Bug #3220.

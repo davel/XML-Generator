@@ -1,9 +1,20 @@
 XML::Generator - A module to help in generating XML documents
 
-Version 0.93 - 2003.1.22
-- Added 'high-bit' option to escape to allow escaping of upper ASCII.
-- Fixed a test bug that assumed the order of elements in a hash.
+Version 0.93 - 2004.2.29
+- FIXED IMPLEMENTATION OF NAMESPACES!! XML::Generator is now conformant.
+  Note that the semantics of namespaces have changed!
+- Implemented AUTOLOAD exporting to simplify syntax.
+- Implement STACKED AUTOLOADs to simplify sub-classing.
+- Added "macro" options ':standard', ':std', ':strict' and ':pretty'.
+- Added new 'allowed_xml_tags' option to allow tags starting with 'xml'
+  under strict conformance.
+- Documented the 'version', 'encoding' and 'dtd' options.
+- Added arguments to xmldecl() to allow more control.
+- Changed XML comment behavior when escaping '--' to escape both dashes.
+- Fixed memory leak in constructor. Bug #4513.
+- Fixed bug in t/DOM.t that caused it to fail when DOM.pm was installed. Bug #3220.
 
-Copyright 1999-2003 Benjamin Holzman. All rights reserved.
+Copyright 1999-2004 Benjamin Holzman. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
+

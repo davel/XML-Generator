@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = '0.93';
+$VERSION = '0.94';
 
 =head1 NAME
 
@@ -12,27 +12,42 @@ XML::Generator - Perl extension for generating XML
 
 =head1 SYNOPSIS
 
-   use XML::Generator;
-  
-   my $xml = XML::Generator->new(escape => 'always',
-                                 pretty => 2,
-                                 conformance => 'strict');
+  use XML::Generator ':pretty';
 
-   print $xml->foo($xml->bar({ baz => 3 }, $xml->bam),
-		   $xml->bar([ 'qux' ], "Hey there, world"));
+  print foo(bar({ baz => 3 }, bam()),
+	    bar([ 'qux' => 'http://qux.com/' ],
+		  "Hey there, world"));
+
+  # OR
+
+  use XML::Generator ();
+
+  my $X = XML::Generator->new(':pretty');
+
+  print $X->foo($X->bar({ baz => 3 }, $X->bam()),
+		$X->bar([ 'qux' => 'http://qux.com/' ],
+			  "Hey there, world"));
  
-   # The above would yield:
+Either of the above yield:
+
    <foo>
      <bar baz="3">
        <bam />
      </bar>
-     <qux:bar>Hey there, world</qux:bar>
+     <qux:bar xmlns:qux="http://qux.com/">Hey there, world</qux:bar>
    </foo>
 
 =head1 DESCRIPTION
 
 In general, once you have an XML::Generator object, you then simply call
 methods on that object named for each XML tag you wish to generate. 
+
+By default, C<use XML::Generator;> tries to export an B<AUTOLOAD> subroutine to
+your package, which allows you to simply call any undefined methods in your
+current package to get pieces of XML.  If you already have an B<AUTOLOAD> defined
+then XML::Generator will not override it unless you tell it to.
+See L<"STACKABLE AUTOLOADs">.
+
 Say you want to generate this XML:
 
    <person>
@@ -44,7 +59,7 @@ Say you want to generate this XML:
 Here's a snippet of code that does the job, complete with pretty printing:
 
    use XML::Generator;
-   my $gen = XML::Generator->new(escape => 'always', pretty => 2);
+   my $gen = XML::Generator->new(':pretty');
    print $gen->person(
             $gen->name("Bob"),
             $gen->age(34),
@@ -65,15 +80,21 @@ Which correctly generates:
 
 You can use a hash ref as the first parameter if the tag should include
 atributes.  An array ref can be supplied as the first argument to indicate
-a namespace for the element and the attributes (the elements of the array
-are concatenated with ':').  Under strict conformance, however, you are
-only allowed one namespace component.
+a namespace for the element and the attributes.
+
+B<WARNING!>
+
+As of version 0.94, the semantics of namespaces have changed.  Now, if there is
+one element in the array, it is considered the URI of the namespace, and the
+tag will have an xmlns="URI" attribute added automatically.  If there are two
+elements, the first should be the tag prefix to use for the namespace and the
+second element should be the URI.  In this case, the prefix will be used for
+the tag and attributes and an xmlns:PREFIX attribute will be automatically added.
+It is an error to supply more than two elements.
 
 If you want to specify a namespace as well as attributes, you can make the
 second argument a hash ref.  If you do it the other way around, the array ref
 will simply get stringified and included as part of the content of the tag.
-If an XML::Generator object has a namespace set, and a namespace is also
-supplied to the tag, the supplied namespace overrides the default.
 
 Here's an example to show how the attribute and namespace parameters work:
 
@@ -85,29 +106,125 @@ Here's an example to show how the attribute and namespace parameters work:
 This generates:
 
    <account type="checking" id="34578">
-     <transaction:open>2000</transaction:open>
-     <transaction:deposit transaction:date="1999.04.03">1500</transaction:deposit>
+     <open xmlns="transaction">2000</open>
+     <deposit xmlns="transaction" date="1999.04.03">1500</deposit>
    </account>
+
+Here is an example that uses the two-argument form of the namespace:
+
+    $xml = $gen->widget(['wru' => 'http://www.widgets-r-us.com/xml/'],
+                        {'id'  => 123}, $gen->contents());
+
+    <wru:widget xmlns:wru="http://www.widgets-r-us.com/xml/" wru:id="123">
+      <contents />
+    </wru:widget>
+
+Note that the wru: prefix is inherited, so the contents tag above is
+semantically equivalent to
+
+      <wru:contents />
+
+If you actually mean
+
+      <contents xmlns="" />
+
+then you have to say:
+
+    $gen->contents([undef]);
 
 =head1 CONSTRUCTOR
 
-XML::Generator-E<gt>new(option => 'value', option => 'value');
+XML::Generator-E<gt>new(':option', ...);
+
+XML::Generator-E<gt>new(option => 'value', ...);
+
+(Both styles may be combined)
 
 The following options are available:
 
+=head2 :std, :standard
+
+Equivalent to 
+
+	escape      => 'always',
+	conformance => 'strict',
+
+=head2 :strict
+
+Equivalent to
+
+	conformance => 'strict',
+
+=head2 :pretty[=N]
+
+Equivalent to
+
+	escape      => 'always',
+	conformance => 'strict',
+	pretty      => N         # N defaults to 2
+
+=head2 :[no]import
+
+Force the exporting behavior of C<use XML::Generator;>.  Generates a warning
+when passed as an argument to B<new>.
+
+=head2 :stacked
+
+Implies :import, but if there is already an B<AUTOLOAD> defined, the
+overriding B<AUTOLOAD> will still give it a chance to run.  See
+L<"STACKED AUTOLOADs">. Generates a warning when passed as an argument to B<new>.
+
 =head2 namespace
+
+B<WARNING!>
+
+As of version 0.94, this must be an array reference containing one or two values.
+If the array contains one value, it should be a URI and will be the value of an
+'xmlns' attribute in the top-level tag.  If there are two elements, the first should
+be the namespace tag prefix and the second the URI of the namespace.  This will enable
+behavior similar to the namespace behavior in previous versions; the tag prefix will be
+applied to each tag and attribute name.  In addition, an xmlns:NAME="URI" attribute will
+be added to the top-level tag.  This is consistent with the XML Namespaces Recommendation;
+the prior behavior was not.
+
+To avoid overly verbose output, XML::Generator takes care to only output
+the 'xmlns' or 'xmlns:NAME' attribute in the top-level tag, since namespaces are
+inherited.  Actually, XML::Generator outputs the 'xmlns' or 'xmlns:NAME' attribute
+in the top-most tag when it is first stringified, which under normal usage should
+map to the top-level tag, but your mileage may vary if you are processing intermediate
+results.  All this means is that you might get more 'xmlns' or 'xmlns:NAME' attributes
+than are necessary, but the results will still be semantically correct.
 
 The value of this option is used as the global default namespace.
 For example,
 
-   my $html = XML::Generator->new(namespace => 'HTML');
-   print $html->font({ face => 'Arial' }, "Hello, there");
+    my $html = XML::Generator->new(
+                 pretty    => 2,
+                 namespace => ['HTML' => "http://www.w3.org/TR/REC-html40"]);
+    print $html->html($html->body($html->font({ face => 'Arial' }, "Hello, there")));
 
 would yield
 
-   <HTML:font HTML:face="Arial">Hello, there</HTML:font>
+    <HTML:html xmlns:HTML="http://www.w3.org/TR/REC-html40">
+      <HTML:body>
+        <HTML:font HTML:face="Arial">Hello, there</HTML:font>
+      </HTML:body>
+    </HTML:html>
 
-See HTML::Generator for routines specific to HTML generation.
+Here the same example except without all the prefixes:
+
+    my $html = XML::Generator->new(
+		 pretty    => 2,
+                 namespace => "http://www.w3.org/TR/REC-html40");
+    print $html->html($html->body($html->font({ 'face' => 'Arial' }, "Hello, there")));
+
+would yield
+
+   <html xmlns="http://www.w3.org/TR/REC-html40">
+     <body>
+        <font HTML:face="Arial">Hello, there</font>
+     </body>
+   </html>
 
 =head2 escape
 
@@ -140,10 +257,20 @@ yields
 
   <foo>&lt;&#162;&gt;</foo>
 
+Because XML::Generator always uses double quotes ("") around attribute values, it
+does not escape single quotes.  If you want single quotes inside attribute values
+to be escaped, use the value 'apos' along with 'always' or 'true' for the escape
+option.  For example:
+
+    my $gen = XML::Generator->new(escape => 'always,apos');
+    print $gen->foo({'bar' => "It's all good"});
+
+    <foo bar="It&apos;s all good" />
+
 =head2 pretty
 
 To have nice pretty printing of the output XML (great for config files
-that you might also want to edit by hand), pass an integer for the
+that you might also want to edit by hand), supply an integer for the
 number of spaces per level of indenting, eg.
 
    my $gen = XML::Generator->new(pretty => 2);
@@ -156,6 +283,12 @@ would yield
      <bar>baz</bar>
      <qux tricky="no">quux</qux>
    </foo>
+
+You may also supply a non-numeric string as the argument to 'pretty', in
+which case the indents will consist of repetitions of that string.  So if
+you want tabbed indents, you would use:
+
+     my $gen = XML::Generator->new(pretty => "\t");
 
 Pretty printing does not apply to CDATA sections or Processing Instructions.
 
@@ -171,6 +304,14 @@ declarations, DTD's, character data sections and "final" XML documents,
 respectively.
 
 See L<"XML CONFORMANCE"> and L<"SPECIAL TAGS"> for more information.
+
+=head2 allowed_xml_tags
+
+If you have specified 'conformance' => 'strict' but need to use tags that
+start with 'xml', you can supply a reference to an array containing those
+tags and they will be accepted without error.  It is not an error to supply
+this option if 'conformance' => 'strict' is not supplied, but it will have
+no effect.
 
 =head2 empty
 
@@ -192,16 +333,32 @@ SGML subsets which allow atomic tags.  It is an error to specify both
 'args' will produce <x /> if there are no arguments at all, or if there
 is just a single undef argument, and <x></x> otherwise.
 
+=head2 version
+
+Sets the default XML version for use in XML declarations.  See L<"xmldecl"> below.
+
+=head2 encoding
+
+Sets the default encoding for use in XML declarations.
+
+=head2 dtd
+
+Specify the dtd.  The value should be an array reference with three values; the type,
+the name and the uri.
+
 =cut
 
 package XML::Generator;
 
+use strict;
+require Carp;
+
 # If no value is provided for these options, they will be set to ''
 
-my @options = qw(
+my @optionsToInit = qw(
+  allowed_xml_tags
   conformance
   dtd
-  encoding
   escape
   namespace
   pretty
@@ -209,11 +366,63 @@ my @options = qw(
   empty
 );
 
-use constant ESCAPE_TRUE     => 1;
-use constant ESCAPE_ALWAYS   => 2;
-use constant ESCAPE_HIGH_BIT => 4;
-
 my %tag_factory;
+
+sub import {
+  my $type = shift;
+
+  if (ref $type && defined $tag_factory{$type}) {
+    unshift @_, 'import';
+    unshift @_, $type;
+    goto &{ $tag_factory{$type} };
+  }
+
+  my $pkg = caller;
+
+  no strict 'refs'; # Let's get serious
+
+  my $import = ( ! defined *{"${pkg}::AUTOLOAD"}{CODE} 
+		|| grep /^: (import|stacked)$/x, @_    )
+	      && ! grep /^:noimport         $/x, @_;
+
+  if ($import) {
+    my $STACKED;
+
+    if (grep /^:stacked$/, @_) {
+      $STACKED = \&{"${pkg}::AUTOLOAD"};
+    }
+
+    my $this = $type->new(@_);
+
+    no warnings 'redefine';
+
+    *{"${pkg}::AUTOLOAD"} =
+      sub {
+	if ($STACKED) {
+	  ${"${pkg}::AUTOLOAD"} = our $AUTOLOAD;
+	  my @ret = $STACKED->(@_);
+	  return wantarray ? @ret : $ret[0] if @ret;
+	}
+
+	# The tag is whatever our sub name is.
+	my($tag) = our $AUTOLOAD =~ /.*::(.*)/;
+
+	if ($tag =~ /^xml/) {
+	  if (my $func = $this->can($tag)) {
+	    unshift @_, $this;
+	    goto &$func;
+	  }
+	}
+
+	unshift @_, $tag;
+	unshift @_, $this;
+
+	goto &{ $tag_factory{$this} };
+      };
+  }
+
+  return;
+}
 
 # The constructor method
 
@@ -224,36 +433,61 @@ sub new {
   # person wants to generate a <new> tag!
   return $class->XML::Generator::util::tag('new', @_) if ref $class;
 
-  my %options = @_;
+  my %options =
+    map {
+      /^:(std|standard)  $/x ? ( escape      => 'always',
+			         conformance => 'strict' )
+    : /^:strict          $/x ? ( conformance => 'strict' )
+    : /^:pretty(?:=(.+))?$/x ? ( escape      => 'always',
+			         conformance => 'strict',
+			         pretty      => ( defined $1 ? $1 : 2 ) )
+    : /^:((no)?import    |
+         stacked        )$/x ? ( do { Carp::carp("Useless use of $_")
+				        unless (caller(1))[3] =~ /::import/;
+				 () } )
+    : $_
+    } @_;
 
   # We used to only accept certain options, but unfortunately this
   # means that subclasses can't extend the list. As such, we now 
   # just make sure our default options are defined.
-  for (@options) { $options{$_} ||= '' }
-
-  $options{'tags'} = {};
+  for (@optionsToInit) { $options{$_} ||= '' }
 
   if ($options{'dtd'}) {
     $options{'dtdtree'} = $class->XML::Generator::util::parse_dtd($options{'dtd'});
   }
 
   if ($options{'conformance'} eq 'strict' &&
-      $options{'empty'} eq 'ignore') {
-    croak "option 'empty' => 'ignore' not allowed while 'conformance' => 'strict'";
+      $options{'empty'}       eq 'ignore') {
+    Carp::croak "option 'empty' => 'ignore' not allowed while 'conformance' => 'strict'";
   }
 
-  if (exists $options{'escape'}) {
+  if ($options{'escape'}) {
     my $e = $options{'escape'};
     $options{'escape'} = 0;
     while ($e =~ /([-\w]+),?/g) {
       if ($1 eq 'always') {
-	$options{'escape'} |= ESCAPE_ALWAYS;
+	$options{'escape'} |= XML::Generator::util::ESCAPE_ALWAYS()
+			   |  XML::Generator::util::ESCAPE_GT();
       } elsif ($1 eq 'high-bit') {
-	$options{'escape'} |= ESCAPE_HIGH_BIT;
+	$options{'escape'} |= XML::Generator::util::ESCAPE_HIGH_BIT();
+      } elsif ($1 eq 'apos') {
+	$options{'escape'} |= XML::Generator::util::ESCAPE_APOS();
       } elsif ($1) {
-	$options{'escape'} |= ESCAPE_TRUE;
+	$options{'escape'} |= XML::Generator::util::ESCAPE_TRUE()
+			   |  XML::Generator::util::ESCAPE_GT();
       }
     }
+  } else {
+    $options{'escape'} = 0;
+  }
+
+  if (ref $options{'namespace'}) {
+    if (@{ $options{'namespace'} } > 2) {
+      Carp::croak "too many arguments for namespace";
+    }
+  } elsif ($options{'namespace'}) {
+    Carp::croak "namespace must be an array reference";
   }
 
   my $this = bless \%options, $class;
@@ -268,9 +502,10 @@ sub AUTOLOAD {
   my $this = shift;
 
   # The tag is whatever our sub name is.
-  my ($tag) = $AUTOLOAD =~ /.*::(.*)/;
+  my ($tag) = our $AUTOLOAD =~ /.*::(.*)/;
 
   unshift @_, $tag;
+  unshift @_, $this;
 
   goto &{ $tag_factory{$this} };
 }
@@ -289,22 +524,8 @@ the current locale if 'use locale' is in effect and according to the
 Unicode standard for Perl versions >= 5.6.  Furthermore, entity or
 attribute names are not allowed to begin with 'xml' (in any case),
 although a number of special tags beginning with 'xml' are allowed
-(see L<"SPECIAL TAGS">).
-
-In addition, only one namespace component will be allowed when strict
-conformance is in effect, and attribute names can be given a specific
-namespace, which will override both the default namespace and the tag-
-specific namespace.  For example,
-
-   my $gen = XML::Generator->new(conformance => 'strict',
-				 namespace   => 'foo');
-   my $xml = $gen->bar({ a => 1 },
-               $gen->baz(['bam'], { b => 2, 'name:c' => 3 })
-              );
-
-will generate:
-
-   <foo:bar foo:a="1"><bam:baz bam:b="2" name:c="3" /></foo:bar>
+(see L<"SPECIAL TAGS">). Note that you can also supply an explicit
+list of allowed tags with the 'allowed_xml_tags' option.
 
 =head1 SPECIAL TAGS
 
@@ -320,7 +541,7 @@ are escaped.
 =cut
 
 # We handle a few special tags, but only if the conformance
-# is 'strict'. If not, we just fall back to AUTOLOAD.
+# is 'strict'. If not, we just fall back to XML::Generator::util::tag.
 
 sub xmlpi {
   my $this = shift;
@@ -338,8 +559,7 @@ sub xmlpi {
      my %atts = @_;
      while (my($k, $v) = each %atts) {
        $this->XML::Generator::util::ck_syntax($k);
-       XML::Generator::util::escape($v, 1, $this->{'escape'} & ESCAPE_ALWAYS,
-					   $this->{'escape'} & ESCAPE_HIGH_BIT);
+       XML::Generator::util::escape($v, XML::Generator::util::ESCAPE_ATTR() | $this->{'escape'});
        $xml .= qq{ $k="$v"};
      }
   }
@@ -352,7 +572,7 @@ sub xmlpi {
 
 Comment.  Arguments are concatenated and placed inside <!-- ... --> comment
 delimiters.  Any occurences of '--' in the concatenated arguments are
-converted to '-&#45;'
+converted to '&#45;&#45;'
 
 =cut
 
@@ -364,33 +584,47 @@ sub xmlcmnt {
 
   my $xml = join '', @_;
 
-  # double dashes are illegal; change them to '-&#45;'
-  $xml =~ s/--/-&#45;/g;
+  # double dashes are illegal; change them to '&#45;&#45;'
+  $xml =~ s/--/&#45;&#45;/g;
   $xml = "<!-- $xml -->";
 
   return XML::Generator::comment->new([$xml]);
 }
 
-=head2 xmldecl
+=head2 xmldecl(@args)
 
 Declaration.  This can be used to specify the version, encoding, and other
-XML-related declarations (i.e., anything inside the <?xml?> tag).
+XML-related declarations (i.e., anything inside the <?xml?> tag).  @args can
+be used to control what is output, as keyword-value pairs.
+
+By default, the version is set to the value specified in the constructor, or
+to 1.0 if it was not specified.  This can be overridden by providing a 'version'
+key in @args.  If you do not want the version at all, explicitly provide undef
+as the value in @args.
+
+By default, the encoding is set to the value specified in the constructor; if
+no value was specified, the encoding will be left out altogether.  Provide an
+'encoding' key in @args to override this.
+
+If a dtd was set in the constructor, the standalone attribute of the declaration
+will be set to 'no' and the doctype declaration will be appended to the XML
+declartion, otherwise the standalone attribute will be set to 'yes'.  This can be
+overridden by providing a 'standalone' key in @args.  If you do not want the
+standalone attribute to show up, explicitly provide undef as the value.
 
 =cut
 
 sub xmldecl {
-  my $this = shift;
+  my($this, @args) = @_;
 
   return $this->XML::Generator::util::tag('xmldecl', @_)
 		unless $this->{conformance} eq 'strict';
 
-  my $version = qq{ version="}.($this->{'version'} || '1.0').qq{"};
+  my $version  = $this->{'version'} || '1.0';
 
   # there's no explicit support for encodings yet, but at the
   # least we can know to put it in the declaration
-  my $encoding = $this->{'encoding'}
-                    ? qq{ encoding="$this->{'encoding'}"}
-                    : '';
+  my $encoding = $this->{'encoding'};
 
   # similarly, although we don't do anything with DTDs yet, we
   # recognize a 'dtd' => [ ... ] option to the constructor, and
@@ -399,7 +633,27 @@ sub xmldecl {
   my $doctype = $this->xmldtd($this->{dtd});
   my $standalone = $doctype ? "no" : "yes";
 
-  my $xml = "<?xml$version$encoding standalone=\"$standalone\"?>";
+  for (my $i = 0; $i < $#args; $i += 2) {
+         if ($args[$i] eq 'version'   ) {
+      $version    = $args[$i + 1];
+    } elsif ($args[$i] eq 'encoding'  ) {
+      $encoding   = $args[$i + 1];
+    } elsif ($args[$i] eq 'standalone') {
+      $standalone = $args[$i + 1];
+    } else {
+      Carp::croak("Unrecognized argument '$args[$i]'");
+    }
+  }
+
+  $version    =    qq{ version="$version"}    if defined    $version;
+  $encoding   =   qq{ encoding="$encoding"}   if defined   $encoding;
+  $standalone = qq{ standalone="$standalone"} if defined $standalone;
+
+  $encoding   ||= '';
+  $version    ||= '';
+  $standalone ||= '';
+
+  my $xml = "<?xml$version$encoding$standalone?>";
   $xml .= "\n$doctype" if $doctype;
 
   $xml = "$xml\n";
@@ -411,7 +665,8 @@ sub xmldecl {
 
 DTD <!DOCTYPE> tag creation. The format of this method is different from 
 others. Since DTD's are global and cannot contain namespace information,
-the first argument arrayref is concatenated together to form the DTD:
+the first argument should be a reference to an array; the elements are
+concatenated together to form the DTD:
 
    print $xml->xmldtd([ 'html', 'PUBLIC', $xhtml_w3c, $xhtml_dtd ])
 
@@ -420,8 +675,8 @@ This would produce the following declaration:
    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
         "DTD/xhtml1-transitional.dtd">
 
-Assuming that $xhtml_w3c and $xhtml_dtd had the correct values. For
-shortcuts to <!DOCTYPE> generation, see the HTML::Generator module.
+Assuming that $xhtml_w3c and $xhtml_dtd had the correct values.
+
 Note that you can also specify a DTD on creation using the new() method's
 dtd option.
 
@@ -476,7 +731,7 @@ sub xml {
 		unless $this->{conformance} eq 'strict';
 
   unless (@_) {
-    croak "usage: object->xml( (COMMENT | PI)* XML (COMMENT | PI)* )";
+    Carp::croak "usage: object->xml( (COMMENT | PI)* XML (COMMENT | PI)* )";
   }
 
   my $got_root = 0;
@@ -485,11 +740,11 @@ sub xml {
 	    UNIVERSAL::isa($arg, 'XML::Generator::pi');
     if (UNIVERSAL::isa($arg, 'XML::Generator::overload')) {
       if ($got_root) {
-	croak "arguments to xml() can contain only one XML document";
+	Carp::croak "arguments to xml() can contain only one XML document";
       }
       $got_root = 1;
     } else {
-      croak "arguments to xml() must be comments, processing instructions or XML documents";
+      Carp::croak "arguments to xml() must be comments, processing instructions or XML documents";
     }
   }
 
@@ -498,8 +753,7 @@ sub xml {
 
 =head1 CREATING A SUBCLASS
 
-For an example of how to subclass XML::Generator, see Nathan Wiger's 
-HTML::Generator module.
+For a simpler way to implement subclass-like behavior, see L<"STACKABLE AUTOLOADs">.
 
 At times, you may find it desireable to subclass XML::Generator. For example,
 you might want to provide a more application-specific interface to the XML
@@ -595,6 +849,16 @@ Finally, remember that since you are subclassing XML::Generator, you do not
 need to provide your own new() method. The one from XML::Generator is designed
 to allow you to properly subclass it.
 
+=head1 STACKABLE AUTOLOADs
+
+As a simpler alternative to traditional subclassing, the B<AUTOLOAD> that C<use
+XML::Generator;> exports can be configured to work with a pre-defined B<AUTOLOAD>
+with the ':stacked' option.  Simply ensure that your B<AUTOLOAD> is defined before
+C<use XML::Generator ':stacked';> executes.  The B<AUTOLOAD> will get a chance to
+run first; the subroutine name will be in your C<$AUTOLOAD> as normal.  Return an
+empty list to let the default XML::Generator B<AUTOLOAD> run or any other value to
+abort it.
+
 =cut
 
 package XML::Generator::util;
@@ -607,6 +871,13 @@ package XML::Generator::util;
 use strict;
 use Carp;
 
+use constant ESCAPE_TRUE     => 1;
+use constant ESCAPE_ALWAYS   => 1<<1;
+use constant ESCAPE_HIGH_BIT => 1<<2;
+use constant ESCAPE_APOS     => 1<<3;
+use constant ESCAPE_ATTR     => 1<<4;
+use constant ESCAPE_GT       => 1<<5;
+
 sub parse_args {
   # this parses the args and returns a namespace and attr
   # if either were specified, with the remainer of the
@@ -615,22 +886,24 @@ sub parse_args {
   #   ($namespace, $attr, @args) = parse_args(@args);
  
   my($this, @args) = @_;
-  my($namespace, $attr) = ('') x 2;
 
-  # get any globally-set namespace (from new)
-  $namespace = $this->{'namespace'} || '';
+  my($namespace);
+  my($attr) = ('');
 
   # check for supplied namespace
   if (defined($args[0]) && ref $args[0] eq 'ARRAY') {
-    my $names = shift @args;
-    if ($this->{'conformance'} eq 'strict' && @$names > 1) {
-      croak "only one namespace component allowed";
+    $namespace = [@{shift @args}];
+    if (@$namespace > 2) {
+      croak "too many arguments for namespace";
     }
-    $namespace = join ':', @$names;
   }
 
-  # Normalize namespace
-  $namespace =~ s/:?$/:/ if $namespace;
+  # get globally-set namespace (from new)
+  unless ($namespace) {
+    $namespace = [@{$this->{'namespace'} || []}];
+  }
+
+  if ($namespace && @$namespace == 1) { unshift @$namespace, undef }
 
   # check for supplied attributes
   if (defined($args[0]) && ref $args[0] eq 'HASH') {
@@ -638,15 +911,6 @@ sub parse_args {
   }
 
   return ($namespace, $attr, @args);
-}
-
-my $parser;
-sub new_dom_root {
-  require XML::DOM;
-  $parser ||= XML::DOM::Parser->new;
-  my $root = $parser->parse('<_/>');
-  $root->removeChild($root->getFirstChild);
-  return $root;
 }
 
 # This routine is what handles all the automatic tag creation.
@@ -657,21 +921,25 @@ sub new_dom_root {
 # the tag.
 
 sub tag {
-  my $sub  = XML::Generator::util::c_tag(shift);
+  my $sub  = XML::Generator::util::c_tag($_[0]);
   goto &{ $sub } if $sub;
 }
  
 # Generate a closure that encapsulates all the behavior to generate a tag
 sub c_tag {
-  my $this = shift;
+  my $arg = shift;
 
-  my $strict = $this->{'conformance'} eq 'strict';
-  my $always = (my $escape = $this->{'escape'}) & XML::Generator::ESCAPE_ALWAYS;
-  my $high_bit = $escape & XML::Generator::ESCAPE_HIGH_BIT;
-  my $empty  = $this->{'empty'};
-  my $pretty = $this->{'pretty'};
+  my $strict = $arg->{'conformance'} eq 'strict';
+  my $escape = $arg->{'escape'};
+  my $empty  = $arg->{'empty'};
+  my $indent = $arg->{'pretty'} =~ /^[^0-9]/
+             ? $arg->{'pretty'}
+             : $arg->{'pretty'}
+               ? " " x $arg->{'pretty'}
+               : "";
 
   return sub {
+    my $this = shift;
     my $tag = shift || return undef;   # catch for bad usage
 
     # parse our argument list to check for hashref/arrayref properties
@@ -691,7 +959,7 @@ sub c_tag {
       if ($attr) {
 	foreach my $key (keys %{$attr}) {
 	  next unless defined($attr->{$key});
-	  XML::Generator::util::escape($attr->{$key}, 1, $always, $high_bit);
+	  XML::Generator::util::escape($attr->{$key}, ESCAPE_ATTR() | $escape);
 	}
       }
       for (@args) {
@@ -702,7 +970,7 @@ sub c_tag {
 	  # un-ref it
 	  $_ = $$_;
 	} elsif (! UNIVERSAL::isa($_, 'XML::Generator::overload') ) {
-	  XML::Generator::util::escape($_, 0, $always, $high_bit);
+	  XML::Generator::util::escape($_, $escape);
 	}
       }
     } else {
@@ -712,24 +980,25 @@ sub c_tag {
       }
     }
 
-    # generate the XML
-    my $xml = "<$namespace$tag";
+    my $prefix = '';
+    $prefix = $namespace->[0] . ":" if $namespace && defined $namespace->[0];
+    my $xml = "<$prefix$tag";
 
     if ($attr) {
       while (my($k, $v) = each %$attr) {
-	next unless defined($k) && defined($v);
+	next unless defined $k and defined $v;
 	if ($strict) {
 	  # allow supplied namespace in attribute names
 	  if ($k =~ s/^([^:]+)://) {
 	    $this->XML::Generator::util::ck_syntax($k);
 	    $k = "$1:$k";
-	  } else {
+	  } elsif ($prefix) {
 	    $this->XML::Generator::util::ck_syntax($k);
-	    $k = "$namespace$k";
+	    $k = "$prefix$k";
 	  }
 	} else {
 	  if ($k !~ /^[^:]+:/) {
-	    $k = "$namespace$k";
+	    $k = "$prefix$k";
 	  }
 	}
 	$xml .= qq{ $k="$v"};
@@ -743,24 +1012,34 @@ sub c_tag {
 	@xml = ($xml .= ' />');
       } else {
 	$xml .= '>';
-	if ($pretty) {
+	if ($indent) {
 	  my $prettyend = '';
-	  my $spaces = " " x $pretty;
+	  
 	  foreach my $arg (@args) {
 	    next unless defined $arg;
 	    if ( UNIVERSAL::isa($arg, 'XML::Generator::overload') &&
-		! ( UNIVERSAL::isa($arg, 'XML::Generator::cdata') ||
-		    UNIVERSAL::isa($arg, 'XML::Generator::pi') ) ) {
-	      $xml .= "\n$spaces";
+	    (! ( UNIVERSAL::isa($arg, 'XML::Generator::cdata'   ) ||
+		 UNIVERSAL::isa($arg, 'XML::Generator::pi'      )))) {
+	      $xml .= "\n$indent";
 	      $prettyend = "\n";
-	      $arg =~ s/\n/\n$spaces/gs;
+	      XML::Generator::util::_fixupNS($namespace, $arg) if ref $arg->[0];
+	      $arg =~ s/\n/\n$indent/gs;
 	    }
 	    $xml .= "$arg";
 	  }
 	  $xml .= $prettyend;
-	  @xml = ($xml, "</$namespace$tag>");
+	  @xml = ($xml, "</$prefix$tag>");
 	} else {
-	  @xml = ($xml, (grep defined, @args), "</$namespace$tag>");
+	  @xml = $xml;
+	  foreach my $arg (grep defined, @args) {
+	    if ( UNIVERSAL::isa($arg, 'XML::Generator::overload') &&
+	    (! ( UNIVERSAL::isa($arg, 'XML::Generator::cdata'   ) ||
+		 UNIVERSAL::isa($arg, 'XML::Generator::pi'      )))) {
+	      XML::Generator::util::_fixupNS($namespace, $arg) if ref $arg->[0];
+	    }
+	    push @xml, $arg;
+          }
+          push @xml, "</$prefix$tag>";
 	}
       }
     } elsif ($empty eq 'ignore') {
@@ -771,8 +1050,59 @@ sub c_tag {
       @xml = ($xml .= ' />');
     }
 
+    unshift @xml, $namespace if $namespace;
+
     return XML::Generator::overload->new(\@xml);
   };
+}
+
+sub _fixupNS {
+  # remove namespaces
+  # if prefix and uri match one we have, remove them from child
+  # if prefix does not match one we have, remove it and uri from child
+  #   and add them to us
+  my($namespace, $o) = @_;
+  my @n = @{$o->[0]};
+  for (my $i = 0; $i < $#n; $i+=2) {
+    if (defined $n[$i]) {
+      my $flag = 0;
+      for (my $j = 0; $j < $#$namespace; $j+=2) {
+	next unless defined $namespace->[$j];
+	if ($namespace->[$j] eq $n[$i]) {
+	  $flag = 1;
+	  if ($namespace->[$j+1] ne $n[$i+1]) {
+	    $flag = 2;
+	  }
+	  last;
+	}
+      }
+      if (!$flag) {
+	push @$namespace, splice @n, $i, 2;
+	$i-=2;
+      } elsif ($flag == 1) {
+	splice @n, $i, 2;
+	$i-=2;
+      }
+    } elsif (defined $n[$i+1]) {
+      my $flag = 0;
+      for (my $j = 0; $j < $#$namespace; $j+=2) {
+	next if defined $namespace->[$j];
+	$flag = 1;
+        if ($namespace->[$j+1] eq $n[$i+1]) {
+	  splice @n, $i, 2;
+	  $i-=2;
+	}
+      }
+      unless ($flag) {
+	push @$namespace, splice @n, $i, 2;
+      }
+    }
+  }
+  if (@n) {
+    $o->[0] = [@n];
+  } else {
+    splice @$o, 0, 1;
+  }
 }
 
 # Fetch and store config values (those set via new())
@@ -787,24 +1117,36 @@ sub config {
 
 # Collect all escaping into one place
 sub escape {
-  # $_[0] is the argument, $_[1] is the quote " flag, $_[2] is the 'always' flag,
-  # $_[0] is the high-bit flag
-  if ($_[2]) {
-    $_[0] =~ s/&/&amp;/g;  # & first of course
+  # $_[0] is the argument, $_[1] are the flags
+  return unless defined $_[0];
+
+  my $f = $_[1];
+  if ($_[1] & ESCAPE_ALWAYS) {
+    $_[0] =~ s/&(?!(#[0-9]+|#x[0-9a-fA-F]+|\w+);)/&amp;/g;
+
     $_[0] =~ s/</&lt;/g;
-    $_[0] =~ s/>/&gt;/g;
-    $_[0] =~ s/"/&quot;/g if $_[1]; 
+    $_[0] =~ s/>/&gt;/g   if $f & ESCAPE_GT;
+    $_[0] =~ s/"/&quot;/g if $f & ESCAPE_ATTR;
+    $_[0] =~ s/'/&apos;/g if $f & ESCAPE_ATTR && $f & ESCAPE_APOS;
   } else {
     $_[0] =~ s/([^\\]|^)&/$1&amp;/g;
     $_[0] =~ s/\\&/&/g;
     $_[0] =~ s/([^\\]|^)</$1&lt;/g;
     $_[0] =~ s/\\</</g;
-    $_[0] =~ s/([^\\]|^)>/$1&gt;/g;
-    $_[0] =~ s/\\>/>/g;
-    $_[0] =~ s/([^\\]|^)"/$1&quot;/g if $_[1];
-    $_[0] =~ s/\\"/"/g if $_[1];
+    if ($f & ESCAPE_GT) {
+      $_[0] =~ s/([^\\]|^)>/$1&gt;/g;
+      $_[0] =~ s/\\>/>/g;
+    }
+    if ($f & ESCAPE_ATTR) {
+      $_[0] =~ s/([^\\]|^)"/$1&quot;/g;
+      $_[0] =~ s/\\"/"/g;
+      if ($f & ESCAPE_APOS) {
+      $_[0] =~ s/([^\\]|^)'/$1&apos;/g;
+      $_[0] =~ s/\\'/'/g;
+      }
+    }
   } 
-  if ($_[3]) {
+  if ($f & ESCAPE_HIGH_BIT) {
     $_[0] =~ s/([\200-\377])/'&#'.ord($1).';'/ge;
   }
 }
@@ -826,7 +1168,9 @@ sub ck_syntax {
     croak "name [$name] contains illegal character(s)";
   }
   if ($name =~ /^xml/i) {
-    croak "names beginning with 'xml' are reserved by the W3C";
+    if (!$this->{'allowed_xml_tags'} || ! grep { $_ eq $name } @{ $this->{'allowed_xml_tags'} }) {
+      croak "names beginning with 'xml' are reserved by the W3C";
+    }
   }
 }
 
@@ -881,6 +1225,21 @@ sub new {
 
 sub stringify {
   return $_[0] unless UNIVERSAL::isa($_[0], 'XML::Generator::overload');
+  if (ref($_[0]->[0])) { # namespace
+    my $n = shift @{$_[0]};
+    for (my $i = 0; $i < @$n; $i+=2) {
+      my($prefix, $uri) = @$n[$i,$i+1];
+      XML::Generator::util::escape($uri, XML::Generator::util::ESCAPE_ATTR  |
+                                         XML::Generator::util::ESCAPE_ALWAYS|
+                                         XML::Generator::util::ESCAPE_GT);
+      if (defined $prefix) {
+        $_[0]->[0] =~ s/^([^ \/>]+)/$1 xmlns:$prefix="$uri"/;
+      } else {
+        $uri ||= '';
+        $_[0]->[0] =~ s/^([^ \/>]+)/$1 xmlns="$uri"/;
+      }
+    }
+  }
   join $, || "", @{$_[0]}
 }
 
@@ -927,10 +1286,6 @@ Modular rewrite to enable subclassing
 
 =over 4
 
-=item Perl-XML FAQ
-
-http://www.perlxml.com/faq/perl-xml-faq.html
-
 =item The XML::Writer module
 
 http://search.cpan.org/search?mode=module&query=XML::Writer
@@ -938,10 +1293,6 @@ http://search.cpan.org/search?mode=module&query=XML::Writer
 =item The XML::Handler::YAWriter module
 
 http://search.cpan.org/search?mode=module&query=XML::Handler::YAWriter
-
-=item The HTML::Generator module
-
-http://search.cpan.org/search?mode=module&query=HTML::Generator
 
 =back
 
