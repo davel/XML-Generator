@@ -23,3 +23,16 @@ Revision history for Perl extension XML::Generator.
 	- Added escaping options to XMLify content
 	- Added global namespace option
 	- Fixed namespace support somewhat
+
+0.6   Sun Jun 11 16:02:00 2000
+	- Cleaned-up, modularized rewrite courtesy of Bron Gondwana
+	  (perlcode@brong.net)
+	- XML::Generator now returns objects blessed into XML::Generator::auto
+	  which contains only an AUTOLOAD that redirects requests to the
+	  proper method in XML::Generator.
+	- A new option is available in the constructor to force stricter
+	  conformance to the XML specification ('conformance' => 'strict').
+	  This also enables some special tags; "xmlpi", "xmlcmnt", "xmldecl"
+	  and "xmlcdata" that can be used to generate, respectively, processing
+	  instructions, comments, the XML declaration, and character data
+	  sections. 
