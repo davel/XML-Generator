@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = '0.92';
+$VERSION = '0.93';
 
 =head1 NAME
 
@@ -127,6 +127,19 @@ would yield
 
    <foo>&lt;<bar>3 > 4 && 6 < 5</bar>\&amp;&gt;</foo>
 
+By default, high-bit data will be passed through unmodified, so that UTF-8 data
+can be generated with pre-Unicode perls.  If you know that your data is ASCII,
+use the value 'high-bit' for the escape option and bytes with the high bit set
+will be turned into numeric entities.  You can combine this functionality with
+the other escape options by comma-separating the values:
+
+  my $a = XML::Generator->new(escape => 'always,high-bit');
+  print $a->foo("<\242>");
+
+yields
+
+  <foo>&lt;&#162;&gt;</foo>
+
 =head2 pretty
 
 To have nice pretty printing of the output XML (great for config files
@@ -196,6 +209,10 @@ my @options = qw(
   empty
 );
 
+use constant ESCAPE_TRUE     => 1;
+use constant ESCAPE_ALWAYS   => 2;
+use constant ESCAPE_HIGH_BIT => 4;
+
 my %tag_factory;
 
 # The constructor method
@@ -223,6 +240,20 @@ sub new {
   if ($options{'conformance'} eq 'strict' &&
       $options{'empty'} eq 'ignore') {
     croak "option 'empty' => 'ignore' not allowed while 'conformance' => 'strict'";
+  }
+
+  if (exists $options{'escape'}) {
+    my $e = $options{'escape'};
+    $options{'escape'} = 0;
+    while ($e =~ /([-\w]+),?/g) {
+      if ($1 eq 'always') {
+	$options{'escape'} |= ESCAPE_ALWAYS;
+      } elsif ($1 eq 'high-bit') {
+	$options{'escape'} |= ESCAPE_HIGH_BIT;
+      } elsif ($1) {
+	$options{'escape'} |= ESCAPE_TRUE;
+      }
+    }
   }
 
   my $this = bless \%options, $class;
@@ -307,7 +338,8 @@ sub xmlpi {
      my %atts = @_;
      while (my($k, $v) = each %atts) {
        $this->XML::Generator::util::ck_syntax($k);
-       XML::Generator::util::escape($v, 1, $this->{'escape'} eq 'always');
+       XML::Generator::util::escape($v, 1, $this->{'escape'} & ESCAPE_ALWAYS,
+					   $this->{'escape'} & ESCAPE_HIGH_BIT);
        $xml .= qq{ $k="$v"};
      }
   }
@@ -634,7 +666,8 @@ sub c_tag {
   my $this = shift;
 
   my $strict = $this->{'conformance'} eq 'strict';
-  my $always = (my $escape = $this->{'escape'}) eq "always";
+  my $always = (my $escape = $this->{'escape'}) & XML::Generator::ESCAPE_ALWAYS;
+  my $high_bit = $escape & XML::Generator::ESCAPE_HIGH_BIT;
   my $empty  = $this->{'empty'};
   my $pretty = $this->{'pretty'};
 
@@ -658,7 +691,7 @@ sub c_tag {
       if ($attr) {
 	foreach my $key (keys %{$attr}) {
 	  next unless defined($attr->{$key});
-	  XML::Generator::util::escape($attr->{$key}, 1, $always);
+	  XML::Generator::util::escape($attr->{$key}, 1, $always, $high_bit);
 	}
       }
       for (@args) {
@@ -669,7 +702,7 @@ sub c_tag {
 	  # un-ref it
 	  $_ = $$_;
 	} elsif (! UNIVERSAL::isa($_, 'XML::Generator::overload') ) {
-	  XML::Generator::util::escape($_, 0, $always);
+	  XML::Generator::util::escape($_, 0, $always, $high_bit);
 	}
       }
     } else {
@@ -754,7 +787,8 @@ sub config {
 
 # Collect all escaping into one place
 sub escape {
-  # $_[0] is the argument, $_[1] is the quote " flag, is the 'always' flag
+  # $_[0] is the argument, $_[1] is the quote " flag, $_[2] is the 'always' flag,
+  # $_[0] is the high-bit flag
   if ($_[2]) {
     $_[0] =~ s/&/&amp;/g;  # & first of course
     $_[0] =~ s/</&lt;/g;
@@ -770,6 +804,9 @@ sub escape {
     $_[0] =~ s/([^\\]|^)"/$1&quot;/g if $_[1];
     $_[0] =~ s/\\"/"/g if $_[1];
   } 
+  if ($_[3]) {
+    $_[0] =~ s/([\200-\377])/'&#'.ord($1).';'/ge;
+  }
 }
 
 # verify syntax of supplied name; croak if it's not valid.

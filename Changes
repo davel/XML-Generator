@@ -80,3 +80,7 @@ Revision history for Perl extension XML::Generator.
 	  installed for the tests to pass.  Sorry this took so long to get fixed.
 	- Also fixed a bug in XML::Generator::DOM's POD that made it look strange
 	  on search.cpan.org (reported by Ken Williams).
+
+0.93  Wed Jan 22 10:41:00 2003
+	- Added 'high-bit' option to escape to allow escaping of upper ASCII.
+	- Fixed a test bug that assumed the order of elements in a hash.

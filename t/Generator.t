@@ -7,7 +7,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..46\n"; }
+BEGIN { $| = 1; print "1..47\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use XML::Generator;
 $loaded = 1;
@@ -136,7 +136,8 @@ $@ =~ /only one namespace component allowed/ or print "not ";
 print "ok 25\n";
 
 $xml = $x->foo(['bar'], {'baz:foo' => 'qux', 'fob' => 'gux'});
-$xml eq '<bar:foo baz:foo="qux" bar:fob="gux" />' or print "not ";
+($xml eq '<bar:foo baz:foo="qux" bar:fob="gux" />' ||
+ $xml eq '<bar:foo bar:fob="gux" baz:foo="qux" />') or print "not ";
 print "ok 26\n";
 
 $x = new XML::Generator;
@@ -258,3 +259,7 @@ $xml = $x->foo(undef);
 $xml eq '<foo />' or print "not ";
 print "ok 46\n";
 
+$x = XML::Generator->new(escape => 'always,high-bit');
+$xml = $x->foo("<\242>");
+$xml eq '<foo>&lt;&#162;&gt;</foo>' or print "not ";
+print "ok 47 # $xml\n";
