@@ -1,0 +1,10 @@
+XML::Generator - A simple module to help in generating XML documents
+
+Version 0.2 - 1999.02.10
+
+Added support for namespaces.
+Allow "new" as a tag name.
+
+Copyright (c) 1999 Benjamin Holzman. All rights reserved.
+This program is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.

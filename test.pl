@@ -6,7 +6,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..6\n"; }
+BEGIN { $| = 1; print "1..10\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use XML::Generator;
 $loaded = 1;
@@ -36,3 +36,19 @@ print "ok 5\n";
 $xml = $x->bam({'bar'=>42},$x->foo(),"qux");
 $xml eq '<bam bar="42"><foo/>qux</bam>' or print "not ";
 print "ok 6\n";
+
+$xml = $x->new(3);
+$xml eq '<new>3</new>' or print "not ";
+print "ok 7\n";
+
+$xml = $x->foo([baz]);
+$xml eq '<baz:foo/>' or print "not ";
+print "ok 8\n";
+
+$xml = $x->foo([baz,bam]);
+$xml eq '<baz:bam:foo/>' or print "not ";
+print "ok 9\n";
+
+$xml = $x->foo([baz],{'bar'=>42},3);
+$xml eq '<baz:foo bar="42">3</baz:foo>' or print "not ";
+print "ok 10\n";

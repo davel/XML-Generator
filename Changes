@@ -5,3 +5,7 @@ Revision history for Perl extension XML::Generator.
 
 0.1   Wed Nov 11 20:39:11 1998
 	- first public version; bholzman
+
+0.2   Wed Feb 10 12:00:00 1999
+	- Added support for namespaces; bholzman
+	- Allowed "new" as a tag name; bholzman
