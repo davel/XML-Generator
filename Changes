@@ -123,3 +123,14 @@ Revision history for Perl extension XML::Generator.
 	- Allow tag 'AUTOLOAD'.
 	- Fixed bug with default namespace.
 	- More tests
+
+
+0.99_01  Tue Oct 19 22:58:00 2004
+	- Changed default behavior of 'use XML::Generator' to not attempt to export
+	  AUTOLOAD. Removed ':noimport' option.
+	- Allowed more than two components in a namespace, to allow explicit xmlns:
+	  attributes to be output on demand.  Introduced '#default' token.
+	- Improved output aesthetics when there are lot of attributes and the generator
+	  was configured with the 'pretty' option.
+	- Added allowedXMLTags (alias to allowed_xml_tags) and qualified_attributes
+	  (alias to qualifiedAttributes) to rationalize interface.

@@ -259,18 +259,12 @@ ok($xml, '<foo><&#162;<?g?></foo>');
 { my $w; local $SIG{__WARN__} = sub { $w .= $_[0] };
   $x = XML::Generator->new(':import');
   ok($w =~ /Useless use of/, 1); $w = '';
-
-  $x = XML::Generator->new(':noimport');
-  ok($w =~ /Useless use of/, 1); $w = '';
-
-  $x = XML::Generator->new(':stacked');
-  ok($w =~ /Useless use of/, 1);
 }
 
 # test AUTOLOAD
 package Test1;
 
-use XML::Generator;
+use XML::Generator ':import';
 
 ::ok(foo(), '<foo />');
 
@@ -292,28 +286,6 @@ sub AUTOLOAD {
 use XML::Generator;
 
 ::ok(barnyard(), 'foo');
-::ok(foo(), undef);
-
-package Test4;
-
-use XML::Generator qw(:noimport);
-
-$xml = undef;
-eval {
-  $xml = barnyard();
-};
-::ok($xml, undef);
-
-package Test5;
-
-sub AUTOLOAD {
-  return "foo" if our $AUTOLOAD =~ /bar/;
-  return;
-}
-
-use XML::Generator qw(:noimport);
-
-::ok(barnyard(), "foo");
 ::ok(foo(), undef);
 
 package Test6;
@@ -356,25 +328,25 @@ ok($xml, '<!-- &#45;&#45; -->');
 $A = XML::Generator->new(namespace => ['A']);
 $B = XML::Generator->new(namespace => ['B' => 'bee']);
 $xml = $A->foo($B->bar($A->baz()));
-ok($xml, '<foo xmlns:B="bee" xmlns="A"><B:bar><baz xmlns="A" /></B:bar></foo>');
+ok($xml, '<foo xmlns="A" xmlns:B="bee"><B:bar><baz xmlns="A" /></B:bar></foo>');
 
 $xml = $A->foo($A->bar($B->baz()));
-ok($xml, '<foo xmlns:B="bee" xmlns="A"><bar><B:baz /></bar></foo>');
+ok($xml, '<foo xmlns="A" xmlns:B="bee"><bar><B:baz /></bar></foo>');
 
 $xml = $A->foo($B->bar($B->baz()));
-ok($xml, '<foo xmlns:B="bee" xmlns="A"><B:bar><B:baz /></B:bar></foo>');
+ok($xml, '<foo xmlns="A" xmlns:B="bee"><B:bar><B:baz /></B:bar></foo>');
 
 $C = XML::Generator->new(namespace => [undef]);
 $xml = $A->foo($C->bar($B->baz()));
-ok($xml, '<foo xmlns:B="bee" xmlns="A"><bar xmlns=""><B:baz /></bar></foo>');
+ok($xml, '<foo xmlns="A" xmlns:B="bee"><bar xmlns=""><B:baz /></bar></foo>');
 
 $D = XML::Generator->new();
 $xml = $D->foo(['A'],$D->bar([undef],$D->baz(['B'=>'bee'])));
-ok($xml, '<foo xmlns:B="bee" xmlns="A"><bar xmlns=""><B:baz /></bar></foo>');
+ok($xml, '<foo xmlns="A" xmlns:B="bee"><bar xmlns=""><B:baz /></bar></foo>');
 
 $E = XML::Generator->new();
 $xml = $E->foo(['A'],$E->bar([undef],$E->baz(['B'=>'bee'], $E->bum(['A']))));
-ok($xml, '<foo xmlns:B="bee" xmlns="A"><bar xmlns=""><B:baz><bum xmlns="A" /></B:baz></bar></foo>');
+ok($xml, '<foo xmlns="A" xmlns:B="bee"><bar xmlns=""><B:baz><bum xmlns="A" /></B:baz></bar></foo>');
 
 package MyGenerator;
 
@@ -548,3 +520,41 @@ package TestDoc3;
    $pt = $gen->bar({'wow:baz' => 3});
 
 ::ok($pt, '<foo:bar xmlns:foo="http://foo.com/" wow:baz="3" />');
+
+package TestMult;
+
+$gen = XML::Generator->new(namespace => ['foo' => 'foo uri', 'bar' => 'bar uri']);
+$pt = $gen->baz();
+::ok($pt, '<foo:baz xmlns:foo="foo uri" xmlns:bar="bar uri" />');
+
+$pt = $gen->bam(['#default' => 'default uri']);
+::ok($pt, '<bam xmlns="default uri" />');
+
+$pt = $gen->bam(['#default' => 'default uri', 'foo' => 'foo uri']);
+::ok($pt, '<bam xmlns="default uri" xmlns:foo="foo uri" />');
+
+$pt = $gen->bam(['foo' => 'foo uri', '#default' => 'default uri']);
+::ok($pt, '<foo:bam xmlns:foo="foo uri" xmlns="default uri" />');
+
+package TestRDF;
+
+$gen = XML::Generator->new(':pretty');
+$pt = $gen->xml(
+             $gen->RDF([ rdf     => "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+                         contact => "http://www.w3.org/2000/10/swap/pim/contact#" ],
+                $gen->Person(['contact'], { 'rdf:about' => "http://www.w3.org/People/EM/contact#me" },
+                  $gen->fullName(['contact'], 'Eric Miller'),
+                  $gen->mailbox(['contact'], {'rdf:resource' => "mailto:em\@w3.org"}),
+                  $gen->personalTitle(['contact'], 'Dr.'))));
+
+::ok($pt, '<?xml version="1.0" standalone="yes"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:contact="http://www.w3.org/2000/10/swap/pim/contact#">
+  <Person xmlns="contact"
+          rdf:about="http://www.w3.org/People/EM/contact#me">
+    <fullName>Eric Miller</fullName>
+    <mailbox rdf:resource="mailto:em@w3.org" />
+    <personalTitle>Dr.</personalTitle>
+  </Person>
+</rdf:RDF>');
+
