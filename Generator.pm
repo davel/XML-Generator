@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = '0.9';
+$VERSION = '0.91';
 
 =head1 NAME
 
@@ -144,6 +144,8 @@ would yield
      <qux tricky="no">quux</qux>
    </foo>
 
+Pretty printing does not apply to CDATA sections or Processing Instructions.
+
 =head2 conformance
 
 If the value of this option is 'strict', a number of syntactic
@@ -159,18 +161,23 @@ See L<"XML CONFORMANCE"> and L<"SPECIAL TAGS"> for more information.
 
 =head2 empty
 
-There are 3 possible values for this tag:
+There are 5 possible values for this option:
 
-   self    -  create empty tags as "<tag />"  (default)
-   close   -  close empty tags with a separate "</tag>"
+   self    -  create empty tags as <tag />  (default)
+   compact -  create empty tags as <tag/>
+   close   -  close empty tags as <tag></tag>
    ignore  -  don't do anything (non-compliant!)
+   args    -  use count of arguments to decide between <x /> and <x></x>
 
-The last one is intended for subclasses that deal with HTML and other
-SGML subsets which allow atomic tags. Under normal circumstances you
-shouldn't have to change this, although note that either of the first
-two methods is equally acceptable under the XML standard.  It is an
-error to specify both 'conformance' => 'strict' and 'empty' => 'ignore'.
+Many web browsers like the 'self' form, but any one of the forms besides
+'ignore' is acceptable under the XML standard.
 
+'ignore' is intended for subclasses that deal with HTML and other
+SGML subsets which allow atomic tags.  It is an error to specify both
+'conformance' => 'strict' and 'empty' => 'ignore'.
+
+'args' will produce <x /> if there are no arguments at all, or if there
+is just a single undef argument, and <x></x> otherwise.
 
 =cut
 
@@ -189,12 +196,14 @@ my @options = qw(
   empty
 );
 
+my %tag_factory;
+
 # The constructor method
 
 sub new {
   my $class = shift;
 
-  # If we already have a ref in the $class, this means that the
+  # If we already have a ref in $class, this means that the
   # person wants to generate a <new> tag!
   return $class->XML::Generator::util::tag('new', @_) if ref $class;
 
@@ -203,7 +212,9 @@ sub new {
   # We used to only accept certain options, but unfortunately this
   # means that subclasses can't extend the list. As such, we now 
   # just make sure our default options are defined.
-  $options{$_} ||= '' for (@options);
+  for (@options) { $options{$_} ||= '' }
+
+  $options{'tags'} = {};
 
   if ($options{'dtd'}) {
     $options{'dtdtree'} = $class->XML::Generator::util::parse_dtd($options{'dtd'});
@@ -214,7 +225,9 @@ sub new {
     croak "option 'empty' => 'ignore' not allowed while 'conformance' => 'strict'";
   }
 
-  return bless \%options, $class;
+  my $this = bless \%options, $class;
+  $tag_factory{$this} = XML::Generator::util::c_tag($this);
+  return $this;
 }
 
 # We use AUTOLOAD as a front-end to TAG so that we can
@@ -225,14 +238,13 @@ sub AUTOLOAD {
 
   # The tag is whatever our sub name is.
   my ($tag) = $AUTOLOAD =~ /.*::(.*)/;
-  
-  # fork the TAG routine, which is separate so that we can
-  # call it without having to go through AUTOLOAD
-  $this->XML::Generator::util::tag($tag, @_); 
+
+  unshift @_, $tag;
+
+  goto &{ $tag_factory{$this} };
 }
 
-# This prevents autoloading DESTROY
-sub DESTROY { }
+sub DESTROY { delete $tag_factory{$_[0]} }
 
 =head1 XML CONFORMANCE
 
@@ -301,7 +313,7 @@ sub xmlpi {
   }
   $xml .= "?>";
 
-  return XML::Generator::pi->new($xml);
+  return XML::Generator::pi->new([$xml]);
 }
 
 =head2 xmlcmnt
@@ -324,7 +336,7 @@ sub xmlcmnt {
   $xml =~ s/--/-&#45;/g;
   $xml = "<!-- $xml -->";
 
-  return XML::Generator::comment->new($xml);
+  return XML::Generator::comment->new([$xml]);
 }
 
 =head2 xmldecl
@@ -353,9 +365,9 @@ sub xmldecl {
   # use it to create a <!DOCTYPE ...> and to indicate that this
   # document can't stand alone.
   my $doctype = $this->xmldtd($this->{dtd});
-  my $standalone = qq{ standalone="}.($doctype ? "no" : "yes").qq{"};
+  my $standalone = $doctype ? "no" : "yes";
 
-  my $xml = "<?xml$version$encoding$standalone?>";
+  my $xml = "<?xml$version$encoding standalone=\"$standalone\"?>";
   $xml .= "\n$doctype" if $doctype;
 
   $xml = "$xml\n";
@@ -384,12 +396,12 @@ dtd option.
 =cut
 
 sub xmldtd {
-   my $this = shift;
-   my $dtd = shift || return undef;
+  my $this = shift;
+  my $dtd = shift || return undef;
 
-   # return the appropriate <!DOCTYPE> thingy
-   $dtd ? return(qq{<!DOCTYPE } . (join ' ', @{$dtd}) . q{>})
-        : return('');
+  # return the appropriate <!DOCTYPE> thingy
+  $dtd ? return(qq{<!DOCTYPE } . (join ' ', @{$dtd}) . q{>})
+       : return('');
 }
 
 =head2 xmlcdata
@@ -412,7 +424,7 @@ sub xmlcdata {
   $xml =~ s/]]>/]]&gt;/g;
   $xml = "<![CDATA[$xml]]>";
 
-  return XML::Generator::overload->new($xml);
+  return XML::Generator::cdata->new([$xml]);
 }
 
 =head2 xml
@@ -449,7 +461,7 @@ sub xml {
     }
   }
 
-  return XML::Generator::final->new($this->xmldecl(), @_);
+  return XML::Generator::final->new([$this->xmldecl(), @_]);
 }
 
 =head1 CREATING A SUBCLASS
@@ -596,6 +608,15 @@ sub parse_args {
   return ($namespace, $attr, @args);
 }
 
+my $parser;
+sub new_dom_root {
+  require XML::DOM;
+  $parser ||= XML::DOM::Parser->new;
+  my $root = $parser->parse('<_/>');
+  $root->removeChild($root->getFirstChild);
+  return $root;
+}
+
 # This routine is what handles all the automatic tag creation.
 # We maintain it as a separate method so that subclasses can
 # override individual tags and then call SUPER::tag() to create
@@ -604,103 +625,121 @@ sub parse_args {
 # the tag.
 
 sub tag {
-
+  my $sub  = XML::Generator::util::c_tag(shift);
+  goto &{ $sub } if $sub;
+}
+ 
+# Generate a closure that encapsulates all the behavior to generate a tag
+sub c_tag {
   my $this = shift;
-  my $tag = shift || return undef;   # catch for bad usage
 
-  # parse our argument list to check for hashref/arrayref properties
-  my($namespace, $attr, @args) = $this->XML::Generator::util::parse_args(@_);
+  my $strict = $this->{'conformance'} eq 'strict';
+  my $always = (my $escape = $this->{'escape'}) eq "always";
+  my $empty  = $this->{'empty'};
+  my $pretty = $this->{'pretty'};
 
-  if ($this->{'conformance'} eq 'strict') {
-    $this->XML::Generator::util::ck_syntax($tag);
-  }
+  return sub {
+    my $tag = shift || return undef;   # catch for bad usage
 
-  # check for attempt to embed "final" document
-  for (@args) {
-    if (UNIVERSAL::isa($_, 'XML::Generator::final')) {
-      croak("cannot embed XML document");
-    }
-  }
+    # parse our argument list to check for hashref/arrayref properties
+    my($namespace, $attr, @args) = $this->XML::Generator::util::parse_args(@_);
 
-  # Deal with escaping if required
-  if ($this->{'escape'}) {
-    my $always = $this->{'escape'} eq 'always';  # boolean: always quote
-    if ($attr) {
-      foreach my $key (keys %{$attr}) {
-        next unless defined($attr->{$key});
-        XML::Generator::util::escape($attr->{$key}, 1, $always);
+    $this->XML::Generator::util::ck_syntax($tag) if $strict;
+
+    # check for attempt to embed "final" document
+    for (@args) {
+      if (UNIVERSAL::isa($_, 'XML::Generator::final')) {
+	croak("cannot embed XML document");
       }
     }
-    for (@args) {
-      next unless defined($_);
 
-      # perform escaping, except on sub-documents or simple scalar refs
-      if (ref $_ eq "SCALAR") {
-	# un-ref it
-	$_ = $$_;
-      } elsif (! UNIVERSAL::isa($_, 'XML::Generator::overload') ) {
-        XML::Generator::util::escape($_, 0, $always);
-      }
-    }
-  } else {
-    # un-ref simple scalar refs
-    for (@args) {
-      $_ = $$_ if ref $_ eq "SCALAR";
-    }
-  }
-
-  # generate the XML
-  my $xml = "<$namespace$tag";
-
-  if ($attr) {
-    while (my($k, $v) = each %$attr) {
-      next unless defined($k) && defined($v);
-      if ($this->{'conformance'} eq 'strict') {
-	# allow supplied namespace in attribute names
-	if ($k =~ s/^([^:]+)://) {
-	  $this->XML::Generator::util::ck_syntax($k);
-	  $k = "$1:$k";
-	} else {
-	  $this->XML::Generator::util::ck_syntax($k);
-	  $k = "$namespace$k";
-	}
-      } else {
-	if ($k !~ /^[^:]+:/) {
-	  $k = "$namespace$k";
+    # Deal with escaping if required
+   if ($escape) {
+      if ($attr) {
+	foreach my $key (keys %{$attr}) {
+	  next unless defined($attr->{$key});
+	  XML::Generator::util::escape($attr->{$key}, 1, $always);
 	}
       }
-      $xml .= qq{ $k="$v"};
-    }
-  }
+      for (@args) {
+	next unless defined($_);
 
-  my @xml;
-
-  if (@args || $this->{empty} eq 'close') {
-    $xml .= '>';
-    if ($this->{pretty}) {
-      my $prettyend = '';
-      my $spaces = " " x $this->{'pretty'};
-      foreach my $arg (@args) {
-        next unless defined $arg;
-        if (UNIVERSAL::isa($arg, 'XML::Generator::overload')) {
-          $xml .= "\n$spaces";
-          $prettyend = "\n";
-          $arg =~ s/\n/\n$spaces/gs;
-        }
-        $xml .= "$arg";
+	# perform escaping, except on sub-documents or simple scalar refs
+	if (ref $_ eq "SCALAR") {
+	  # un-ref it
+	  $_ = $$_;
+	} elsif (! UNIVERSAL::isa($_, 'XML::Generator::overload') ) {
+	  XML::Generator::util::escape($_, 0, $always);
+	}
       }
-      $xml .= $prettyend;
-      @xml = ($xml, "</$namespace$tag>");
     } else {
-      @xml = ($xml, (grep defined, @args), "</$namespace$tag>");
+      # un-ref simple scalar refs
+      for (@args) {
+	$_ = $$_ if ref $_ eq "SCALAR";
+      }
     }
-  } elsif ($this->{empty} eq 'ignore') {
-    @xml = ($xml .= '>');
-  } else {
-    @xml = ($xml .= ' />');
-  }
 
-  return XML::Generator::overload->new(@xml);
+    # generate the XML
+    my $xml = "<$namespace$tag";
+
+    if ($attr) {
+      while (my($k, $v) = each %$attr) {
+	next unless defined($k) && defined($v);
+	if ($strict) {
+	  # allow supplied namespace in attribute names
+	  if ($k =~ s/^([^:]+)://) {
+	    $this->XML::Generator::util::ck_syntax($k);
+	    $k = "$1:$k";
+	  } else {
+	    $this->XML::Generator::util::ck_syntax($k);
+	    $k = "$namespace$k";
+	  }
+	} else {
+	  if ($k !~ /^[^:]+:/) {
+	    $k = "$namespace$k";
+	  }
+	}
+	$xml .= qq{ $k="$v"};
+      }
+    }
+
+    my @xml;
+
+    if (@args || $empty eq 'close') {
+      if ($empty eq 'args' && @args == 1 && ! defined $args[0]) {
+	@xml = ($xml .= ' />');
+      } else {
+	$xml .= '>';
+	if ($pretty) {
+	  my $prettyend = '';
+	  my $spaces = " " x $pretty;
+	  foreach my $arg (@args) {
+	    next unless defined $arg;
+	    if ( UNIVERSAL::isa($arg, 'XML::Generator::overload') &&
+		! ( UNIVERSAL::isa($arg, 'XML::Generator::cdata') ||
+		    UNIVERSAL::isa($arg, 'XML::Generator::pi') ) ) {
+	      $xml .= "\n$spaces";
+	      $prettyend = "\n";
+	      $arg =~ s/\n/\n$spaces/gs;
+	    }
+	    $xml .= "$arg";
+	  }
+	  $xml .= $prettyend;
+	  @xml = ($xml, "</$namespace$tag>");
+	} else {
+	  @xml = ($xml, (grep defined, @args), "</$namespace$tag>");
+	}
+      }
+    } elsif ($empty eq 'ignore') {
+      @xml = ($xml .= '>');
+    } elsif ($empty eq 'compact') {
+      @xml = ($xml .= '/>');
+    } else {
+      @xml = ($xml .= ' />');
+    }
+
+    return XML::Generator::overload->new(\@xml);
+  };
 }
 
 # Fetch and store config values (those set via new())
@@ -799,8 +838,8 @@ use overload '""'   => \&stringify,
              'eq'   => sub { stringify($_[0]) eq stringify($_[1]) };
 
 sub new {
-  my($class, @xml) = @_;
-  return bless \@xml, $class;
+  my($class, $xml) = @_;
+  return bless $xml, $class;
 }
 
 sub stringify {
@@ -819,6 +858,10 @@ package XML::Generator::comment;
 use base 'XML::Generator::overload';
 
 package XML::Generator::pi;
+
+use base 'XML::Generator::overload';
+
+package XML::Generator::cdata;
 
 use base 'XML::Generator::overload';
 

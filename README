@@ -1,18 +1,17 @@
 XML::Generator - A module to help in generating XML documents
 
-Version 0.9 - 2000.11.18
-
-- Massive code reorganization to support subclassing, courtesy of
-  Nathan Winger (nate@nateware.com)
-- New instantiation option, 'empty', to control how empty tags are
-  rendered.
-- Improved internal representation for improved performance
-  ( $gen->foo($gen->bar($gen->baz( $really_big_string ))) used to copy
-  $really_big_string three times; as long as the 'pretty' option is not
-  supplied, this is no longer the case. )
-- Fixed xml() tag to allow comments and processing instructions before
-  and/or after the xml document.
-- New special tag, xmldtd(), which used to be part of xmldecl().
+Version 0.91 - 2000.12.11
+- Added XML::Generator::DOM subclass for producing DOM trees instead of
+  strings.
+- New choices for the 'empty' option: 'compact' and 'args'.
+- Changed the semantics of 'pretty' option; CDATA sections and Processing
+  Instructions are no longer subject to the pretty printing rules.  Thanks
+  for the bug report from Murat Uenalan.
+- Using closures for tag generation, which seems to save a little bit of
+  time.  Might not be worth it in the long run, for maintainability's sake.
+- Fix for perl versions that can't use 'for' as a statement modifier (pre 5.005)
+  courtesy of Neil Prockter (n.prockter@lse.ac.uk).
+- Some documentation fixups.
 
 Copyright 1999-2000 Benjamin Holzman. All rights reserved.
 This program is free software; you can redistribute it and/or

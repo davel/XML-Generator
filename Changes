@@ -61,3 +61,16 @@ Revision history for Perl extension XML::Generator.
 	- Fixed xml() tag to allow comments and processing instructions before
 	  and/or after the xml document.
 	- New special tag, xmldtd(), which used to be part of xmldecl().
+
+0.91  Mon Dec 11 11:33:32 2000
+	- Added XML::Generator::DOM subclass for producing DOM trees instead of
+	  strings.
+	- New choices for the 'empty' option: 'compact' and 'args'.
+	- Changed the semantics of 'pretty' option; CDATA sections and Processing
+	  Instructions are no longer subject to the pretty printing rules.  Thanks
+	  for the bug report from Murat Uenalan.
+	- Using closures for tag generation, which seems to save a little bit of
+	  time.  Might not be worth it in the long run, for maintainability's sake.
+	- Fix for perl versions that can't use 'for' as a statement modifier (pre 5.005)
+	  courtesy of Neil Prockter (n.prockter@lse.ac.uk).
+	- Some documentation fixups.
