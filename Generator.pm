@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = '0.96';
+$VERSION = '0.97';
 
 =head1 NAME
 

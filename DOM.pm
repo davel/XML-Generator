@@ -41,6 +41,7 @@ XML::Generator methods and XML::Generator::DOM methods.
 
 use strict;
 use Carp;
+use XML::Generator ();
 use base 'XML::Generator';
 use XML::DOM;
 
@@ -209,6 +210,8 @@ sub AUTOLOAD {
   my $root = $this->{'dom'};
 
   my($namespace, $attr, @args) = $this->XML::Generator::util::parse_args(@_);
+
+  $namespace = $namespace->[1] ? $namespace->[1] . ':' : '';
 
   my $xml  = $root->createDocumentFragment();
 

@@ -107,3 +107,6 @@ Revision history for Perl extension XML::Generator.
 	- More documentation fixups.
 	- Only check for xml() subs under strict conformance.
 	- Small performance optimizations.
+
+0.97  Mon Mar  1 15:22:00 2004
+	- Fixed bugs in DOM.t reported by David Wheeler.
