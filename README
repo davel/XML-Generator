@@ -1,19 +1,12 @@
 XML::Generator - A module to help in generating XML documents
 
-Version 0.91 - 2000.12.11
-- Added XML::Generator::DOM subclass for producing DOM trees instead of
-  strings.
-- New choices for the 'empty' option: 'compact' and 'args'.
-- Changed the semantics of 'pretty' option; CDATA sections and Processing
-  Instructions are no longer subject to the pretty printing rules.  Thanks
-  for the bug report from Murat Uenalan.
-- Using closures for tag generation, which seems to save a little bit of
-  time.  Might not be worth it in the long run, for maintainability's sake.
-- Fix for perl versions that can't use 'for' as a statement modifier (pre 5.005)
-  courtesy of Neil Prockter (n.prockter@lse.ac.uk).
-- Some documentation fixups.
+Version 0.92 - 2003.1.21
+- Finally (after multiple bug reports) stopped requiring that XML::DOM be
+  installed for the tests to pass.  Sorry this took so long to get fixed.
+- Also fixed a bug in XML::Generator::DOM's POD that made it look strange
+  on search.cpan.org (reported by Ken Williams).
 
-Copyright 1999-2000 Benjamin Holzman. All rights reserved.
+Copyright 1999-2003 Benjamin Holzman. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 

@@ -1,8 +1,8 @@
 package XML::Generator::DOM;
 
-=head1 NAME XML::Generator::DOM
+=head1 NAME
 
-XML::Generator subclass for producing DOM trees instead of strings.
+XML::Generator::DOM - XML::Generator subclass for producing DOM trees instead of strings.
 
 =head1 SYNOPSIS
 
@@ -46,7 +46,7 @@ use XML::DOM;
 
 use vars qw( $AUTOLOAD $VERSION );
 
-$VERSION = '0.1';
+$VERSION = '0.2';
 
 =head1 CONSTRUCTOR
 

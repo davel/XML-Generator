@@ -74,3 +74,9 @@ Revision history for Perl extension XML::Generator.
 	- Fix for perl versions that can't use 'for' as a statement modifier (pre 5.005)
 	  courtesy of Neil Prockter (n.prockter@lse.ac.uk).
 	- Some documentation fixups.
+
+0.92  Tue Jan 21 13:12:00 2003
+	- Finally (after multiple bug reports) stopped requiring that XML::DOM be
+	  installed for the tests to pass.  Sorry this took so long to get fixed.
+	- Also fixed a bug in XML::Generator::DOM's POD that made it look strange
+	  on search.cpan.org (reported by Ken Williams).

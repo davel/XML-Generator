@@ -7,6 +7,11 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
+BEGIN { 
+  print "1..0 # Skipped: XML::DOM not installed\n" unless eval "use XML::DOM; 1";
+  exit;
+}
+
 BEGIN { $| = 1; print "1..37\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use XML::Generator::DOM;
