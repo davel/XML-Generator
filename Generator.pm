@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = '0.98';
+$VERSION = '0.99';
 
 =head1 NAME
 
@@ -30,11 +30,11 @@ XML::Generator - Perl extension for generating XML
  
 Either of the above yield:
 
-   <foo>
+   <foo xmlns:qux="http://qux.com/">
      <bar baz="3">
        <bam />
      </bar>
-     <qux:bar xmlns:qux="http://qux.com/">Hey there, world</qux:bar>
+     <qux:bar>Hey there, world</qux:bar>
    </foo>
 
 =head1 DESCRIPTION
@@ -79,18 +79,41 @@ Which correctly generates:
    <shoe-size>12 1/2</shoe-size>
 
 You can use a hash ref as the first parameter if the tag should include
-atributes.  An array ref can be supplied as the first argument to indicate
+atributes.  Normally this means that the order of the attributes will be
+unpredictable, but if you have the L<Tie::IxHash> module, you can use it
+to get the order you want, like this:
+
+  use Tie::IxHash;
+  tie my %attr, 'Tie::IxHash';
+
+  %attr = (name => 'Bob', 
+	   age  => 34,
+	   job  => 'Accountant',
+    'shoe-size' => '12 1/2');
+
+  print $gen->person(\%attr);
+
+This produces
+
+  <person name="Bob" age="34" job="Accountant" shoe-size="12 1/2" />
+
+An array ref can also be supplied as the first argument to indicate
 a namespace for the element and the attributes.
 
-B<WARNING!>
+B<WARNING! ** BACKWARDS INCOMPATIBILITY **>
 
 As of version 0.94, the semantics of namespaces have changed.  Now, if there is
-one element in the array, it is considered the URI of the namespace, and the
-tag will have an xmlns="URI" attribute added automatically.  If there are two
+one element in the array, it is considered the URI of the default namespace, and
+the tag will have an xmlns="URI" attribute added automatically.  If there are two
 elements, the first should be the tag prefix to use for the namespace and the
 second element should be the URI.  In this case, the prefix will be used for
-the tag and attributes and an xmlns:PREFIX attribute will be automatically added.
-It is an error to supply more than two elements.
+the tag and an xmlns:PREFIX attribute will be automatically added.  Prior to version
+0.99, this prefix was also automatically added to each attribute name.  Now, the
+default behavior is to leave the attributes alone (although you may always explicitly
+add a prefix to an attribute name).  If the prior behavior is desired, use the
+constructor option C<qualifiedAttributes>.
+
+It is an error to supply more than two elements in a namespace.
 
 If you want to specify a namespace as well as attributes, you can make the
 second argument a hash ref.  If you do it the other way around, the array ref
@@ -98,39 +121,47 @@ will simply get stringified and included as part of the content of the tag.
 
 Here's an example to show how the attribute and namespace parameters work:
 
-   $xml = $gen->account({ type => 'checking', id => '34758'},
+   $xml = $gen->account(
 	    $gen->open(['transaction'], 2000),
 	    $gen->deposit(['transaction'], { date => '1999.04.03'}, 1500)
           );
 
 This generates:
 
-   <account type="checking" id="34578">
+   <account>
      <open xmlns="transaction">2000</open>
      <deposit xmlns="transaction" date="1999.04.03">1500</deposit>
    </account>
+
+Because default namespaces inherit, XML::Generator takes care to output
+the xmlns="URI" attribute as few times as strictly necessary.  For example,
+
+   $xml = $gen->account(
+	    $gen->open(['transaction'], 2000),
+	    $gen->deposit(['transaction'], { date => '1999.04.03'},
+	      $gen->amount(['transaction'], 1500)
+	    )
+          );
+
+This generates:
+
+   <account>
+     <open xmlns="transaction">2000</open>
+     <deposit xmlns="transaction" date="1999.04.03">
+       <amount>1500</amount>
+     </deposit>
+   </account>
+
+Notice how C<xmlns="transaction"> was left out of the C<<amount>> tag.
 
 Here is an example that uses the two-argument form of the namespace:
 
     $xml = $gen->widget(['wru' => 'http://www.widgets-r-us.com/xml/'],
                         {'id'  => 123}, $gen->contents());
 
-    <wru:widget xmlns:wru="http://www.widgets-r-us.com/xml/" wru:id="123">
+    <wru:widget xmlns:wru="http://www.widgets-r-us.com/xml/" id="123">
       <contents />
     </wru:widget>
-
-Note that the wru: prefix is inherited, so the contents tag above is
-semantically equivalent to
-
-      <wru:contents />
-
-If you actually mean
-
-      <contents xmlns="" />
-
-then you have to say:
-
-    $gen->contents([undef]);
 
 =head1 CONSTRUCTOR
 
@@ -176,7 +207,7 @@ AUTOLOADs">. Generates a warning when passed as an argument to C<new>.
 
 =head2 namespace
 
-B<WARNING!>
+B<WARNING! ** BACKWARDS INCOMPATIBILITY **>
 
 As of version 0.94, this must be an array reference containing one or
 two values.  If the array contains one value, it should be a URI and will
@@ -184,18 +215,11 @@ be the value of an 'xmlns' attribute in the top-level tag.  If there
 are two elements, the first should be the namespace tag prefix and the
 second the URI of the namespace.  This will enable behavior similar
 to the namespace behavior in previous versions; the tag prefix will be
-applied to each tag and attribute name.  In addition, an xmlns:NAME="URI"
-attribute will be added to the top-level tag.  This is consistent with
-the XML Namespaces Recommendation; the prior behavior was not.
-
-To avoid overly verbose output, XML::Generator takes care to only
-output the 'xmlns' or 'xmlns:NAME' attribute in the top-level tag, since
-namespaces are inherited.  Actually, XML::Generator outputs the 'xmlns' or
-'xmlns:NAME' attribute in the top-most tag when it is first stringified,
-which under normal usage should map to the top-level tag, but your
-mileage may vary if you are processing intermediate results.  All this
-means is that you might get more 'xmlns' or 'xmlns:NAME' attributes than
-are necessary, but the results will still be semantically correct.
+applied to each tag.  In addition, an xmlns:NAME="URI" attribute will be
+added to the top-level tag.  Prior to version 0.99, the tag prefix was also
+automatically added to each attribute name, unless overridden with an explicit
+prefix.  Now, the attribute names are left alone, but if the prior behavior is
+desired, use the constructor option C<qualifiedAttributes>.
 
 The value of this option is used as the global default namespace.
 For example,
@@ -212,15 +236,15 @@ would yield
 
     <HTML:html xmlns:HTML="http://www.w3.org/TR/REC-html40">
       <HTML:body>
-        <HTML:font HTML:face="Arial">Hello, there</HTML:font>
+        <HTML:font face="Arial">Hello, there</HTML:font>
       </HTML:body>
     </HTML:html>
 
-Here the same example except without all the prefixes:
+Here is the same example except without all the prefixes:
 
     my $html = XML::Generator->new(
 		 pretty    => 2,
-                 namespace => "http://www.w3.org/TR/REC-html40");
+                 namespace => ["http://www.w3.org/TR/REC-html40"]);
     print $html->html(
 	    $html->body(
 	      $html->font({ 'face' => 'Arial' },
@@ -233,6 +257,20 @@ would yield
         <font face="Arial">Hello, there</font>
      </body>
    </html>
+
+=head2 qualifiedAttributes
+
+Set this to a true value to emulate the attribute prefixing behavior of
+XML::Generator prior to version 0.99.  Here is an example:
+
+    my $foo = XML::Generator->new(
+                namespace => [foo => "http://foo.com/"],
+		qualifiedAttributes => 1);
+    print $foo->bar({baz => 3});
+
+yields
+
+    <foo:bar xmlns:foo="http://foo.com/" foo:baz="3" />
 
 =head2 escape
 
@@ -380,6 +418,7 @@ my @optionsToInit = qw(
   pretty
   version
   empty
+  qualifiedAttributes
 );
 
 my %tag_factory;
@@ -387,6 +426,7 @@ my %tag_factory;
 sub import {
   my $type = shift;
 
+  # check for attempt to use tag 'import'
   if (ref $type && defined $tag_factory{$type}) {
     unshift @_, $type, 'import';
     goto &{ $tag_factory{$type} };
@@ -396,6 +436,8 @@ sub import {
 
   no strict 'refs'; # Let's get serious
 
+  # should we import an AUTOLOAD?
+  no warnings 'once';
   my $import = ( ! defined *{"${pkg}::AUTOLOAD"}{CODE} 
 		|| grep /^: (import|stacked)$/x, @_    )
 	      && ! grep /^:noimport         $/x, @_;
@@ -403,13 +445,14 @@ sub import {
   if ($import) {
     my $STACKED;
 
+    # are we supposed to call their AUTOLOAD first?
     if (grep /^:stacked$/, @_) {
       $STACKED = \&{"${pkg}::AUTOLOAD"};
     }
 
     my $this = $type->new(@_);
 
-    no warnings 'redefine';
+    no warnings 'redefine'; # No, I mean SERIOUS
 
     *{"${pkg}::AUTOLOAD"} =
       sub {
@@ -422,6 +465,7 @@ sub import {
 	# The tag is whatever our sub name is.
 	my($tag) = our $AUTOLOAD =~ /.*::(.*)/;
 
+	# Special-case for xml... tags
 	if ($tag =~ /^xml/ && $this->{'conformance'} eq 'strict') {
 	  if (my $func = $this->can($tag)) {
 	    unshift @_, $this;
@@ -525,14 +569,18 @@ sub new {
 sub AUTOLOAD {
   my $this = shift;
 
-  # The tag is whatever our sub name is.
-  my ($tag) = our $AUTOLOAD =~ /.*::(.*)/;
+  # The tag is whatever our sub name is, or 'AUTOLOAD'
+  my ($tag) = defined our $AUTOLOAD ? $AUTOLOAD =~ /.*::(.*)/ : 'AUTOLOAD';
+
+  undef $AUTOLOAD; # this ensures that future attempts to use tag 'AUTOLOAD' work.
 
   unshift @_, $this, $tag;
 
   goto &{ $tag_factory{$this} };
 }
 
+# I wish there were a way to allow people to use tag 'DESTROY!'
+# hmm, maybe xmlDESTROY?
 sub DESTROY { delete $tag_factory{$_[0]} }
 
 =head1 XML CONFORMANCE
@@ -967,6 +1015,10 @@ sub parse_args {
   # check for supplied attributes
   if (ref $args[0] eq 'HASH') {
     $attr = shift @args;
+    if ($this->{conformance} eq 'strict') {
+      $this->XML::Generator::util::ck_syntax($_)
+	for map split(/:/), keys %$attr;
+    }
   }
 
   return ($namespace, $attr, @args);
@@ -1051,11 +1103,13 @@ sub c_tag {
 	  if ($k =~ s/^([^:]+)://) {
 	    $this->XML::Generator::util::ck_syntax($k);
 	    $k = "$1:$k";
-	  } elsif ($prefix) {
+	  } elsif ($prefix && $this->{'qualifiedAttributes'}) {
 	    $this->XML::Generator::util::ck_syntax($k);
 	    $k = "$prefix$k";
+	  } else {
+	    $this->XML::Generator::util::ck_syntax($k);
 	  }
-	} else {
+	} elsif ($this->{'qualifiedAttributes'}) {
 	  if ($k !~ /^[^:]+:/) {
 	    $k = "$prefix$k";
 	  }
@@ -1117,13 +1171,22 @@ sub c_tag {
 
 sub _fixupNS {
   # remove namespaces
-  # if prefix and uri match one we have, remove them from child
-  # if prefix does not match one we have, remove it and uri from child
-  #   and add them to us
+  # if prefix
+  #    if prefix and uri match one we have, remove them from child
+  #    if prefix does not match one we have, remove it and uri
+  #      from child and add them to us
+  # no prefix
+  #    if we have an explicit default namespace and the child has the
+  #      same one, remove it from the child
+  #    if we have an explicit default namespace and the child has a
+  #      different one, leave it alone
+  #    if we have an explicit default namespace and the child has none,
+  #      add an empty default namespace to child
   my($namespace, $o) = @_;
   my @n = @{$o->[0]};
+  my $sawDefault = 0;
   for (my $i = 0; $i < $#n; $i+=2) {
-    if (defined $n[$i]) {
+    if (defined $n[$i]) { # namespace w/ prefix
       my $flag = 0;
       for (my $j = 0; $j < $#$namespace; $j+=2) {
 	next unless defined $namespace->[$j];
@@ -1142,21 +1205,26 @@ sub _fixupNS {
 	splice @n, $i, 2;
 	$i-=2;
       }
-    } elsif (defined $n[$i+1]) {
-      my $flag = 0;
+    } elsif (defined $n[$i+1]) { # default namespace
+      $sawDefault = 1;
       for (my $j = 0; $j < $#$namespace; $j+=2) {
 	next if defined $namespace->[$j];
-	$flag = 1;
         if ($namespace->[$j+1] eq $n[$i+1]) {
 	  splice @n, $i, 2;
 	  $i-=2;
 	}
       }
-      unless ($flag) {
-	push @$namespace, splice @n, $i, 2;
-      }
     }
   }
+
+  # check to see if we need to add explicit default namespace of "" to child
+  if (! @{ $o->[0] } &&
+      ! $sawDefault &&
+      grep { defined $namespace->[$_ * 2 + 1] &&
+           ! defined $namespace->[$_ * 2    ] } 0..($#$namespace/2)) {
+    push @n, undef, "";
+  }
+
   if (@n) {
     $o->[0] = [@n];
   } else {

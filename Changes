@@ -113,3 +113,13 @@ Revision history for Perl extension XML::Generator.
 
 0.98  Mon Mar  1 18:26:00 2004
 	- Fixed bug in DOM.t when XML::DOM not installed (caused by fix in 0.97)
+
+0.99  Tue Mar 23 11:17:00 2004
+	- Removed automatic prefixing of attribute names when using a namespace.
+	- Added 'qualifiedAttributes' constructor option to emulate prior attribute
+	  prefixing behavior.
+	- Always syntax check attribute names under strict conformance.
+	- Add documentation on using Tie::IxHash to get predictable attribute ordering.
+	- Allow tag 'AUTOLOAD'.
+	- Fixed bug with default namespace.
+	- More tests

@@ -1,5 +1,34 @@
 XML::Generator - A module to help in generating XML documents
 
+SYNOPSIS
+--------
+Lets you do this:
+
+	use XML::Generator  ':pretty';
+	print this(is(a(document())));
+
+To get this:
+
+	<this>
+	  <is>
+	    <a>
+	      <document />
+	    </a>
+	  </is>
+	</this>
+
+RECENT CHANGES
+------ -------
+Version 0.99 - 2004.3.23
+- Removed automatic prefixing of attribute names when using a namespace.
+- Added 'qualifiedAttributes' constructor option to emulate prior attribute
+  prefixing behavior.
+- Always syntax check attribute names under strict conformance.
+- Add documentation on using Tie::IxHash to get predictable attribute ordering.
+- Allow tag 'AUTOLOAD'.
+- Fixed bug with default namespace.
+- More tests
+
 Version 0.98 - 2004.3.1
 - Fixed bug in DOM.t when XML::DOM not installed (caused by fix in 0.97)
 
@@ -29,6 +58,8 @@ Version 0.94 - 2004.2.29
 - Fixed memory leak in constructor. Bug #4513.
 - Fixed bug in t/DOM.t that caused it to fail when DOM.pm was installed. Bug #3220.
 
+COPYRIGHT
+---------
 Copyright 1999-2004 Benjamin Holzman. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.

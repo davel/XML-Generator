@@ -2,7 +2,7 @@
 
 use Test;
 
-BEGIN { $| = 1; plan tests => 78; }
+BEGIN { $| = 1; plan tests => 95; }
 
 use XML::Generator ();
 ok(1);
@@ -22,6 +22,17 @@ ok($xml, '<baz foo="3" />');
 $xml = $x->bam({'bar'=>42},$x->foo(),"qux");
 ok($xml, '<bam bar="42"><foo />qux</bam>');
 
+eval { require 'Tie::IxHash'; };
+if ($@) {
+  skip('Tie::IxHash not installed', 1);
+} else {
+  tie %h, 'Tie::IxHash';
+  @h{'a'..'z'} = 1..26;
+  $xml = $x->foo(\%h);
+  ok($xml, '<foo ' . join(' ', map qq($_="$h{$_}"), keys %h) . ' />');
+}
+
+
 $xml = $x->new(3);
 ok($xml, '<new>3</new>');
 
@@ -38,7 +49,7 @@ $xml = $x->foo(['baz'],{'bar'=>42},3);
 ok($xml, '<foo xmlns="baz" bar="42">3</foo>');
 
 $xml = $x->foo(['baz','bam'],{'bar'=>42},3);
-ok($xml, '<baz:foo xmlns:baz="bam" baz:bar="42">3</baz:foo>');
+ok($xml, '<baz:foo xmlns:baz="bam" bar="42">3</baz:foo>');
 
 $xml = $x->foo({'id' => 4}, 3, 5);
 ok($xml, '<foo id="4">35</foo>');
@@ -93,27 +104,37 @@ ok($xml, '<?target option="value"?>');
 eval {
   $x->xmlfoo();
 };
-ok($@ =~ /names beginning with 'xml' are reserved by the W3C/, 1);
+ok($@, qr{names beginning with 'xml' are reserved by the W3C});
+
+eval {
+  $x->foo({xmlfoo => 4});
+};
+ok($@, qr{names beginning with 'xml' are reserved by the W3C});
 
 eval {
   my $t = "42";
   $x->$t();
 };
-ok($@ =~ /name \[42] may not begin with a number/, 1);
+ok($@, qr{name \[42] may not begin with a number});
+
+eval {
+  $x->q({42=>'the answer'});
+};
+ok($@, qr{name \[42] may not begin with a number});
 
 eval {
   my $t = "g:";
   $x->$t();
 };
-ok($@ =~ /name \[g:] contains illegal character\(s\)/, 1);
+ok($@, qr{name \[g:] contains illegal character\(s\)});
 
 $xml = $x->foo(['bar'], {'baz:foo' => 'qux', 'fob' => 'gux'});
 ok($xml eq '<foo xmlns="bar" baz:foo="qux" fob="gux" />' ||
    $xml eq '<foo xmlns="bar" fob="gux" baz:foo="qux" />', 1, $xml);
 
 $xml = $x->foo(['bar' => 'bam'], {'baz:foo' => 'qux', 'fob' => 'gux'});
-ok($xml eq '<bar:foo xmlns:bar="bam" baz:foo="qux" bar:fob="gux" />' ||
-   $xml eq '<bar:foo xmlns:bar="bam" bar:fob="gux" baz:foo="qux" />', 1, $xml);
+ok($xml eq '<bar:foo xmlns:bar="bam" baz:foo="qux" fob="gux" />' ||
+   $xml eq '<bar:foo xmlns:bar="bam" fob="gux" baz:foo="qux" />', 1, $xml);
 
 $x = new XML::Generator;
 $xml = $x->xml();
@@ -325,12 +346,6 @@ use XML::Generator qw(:stacked);
 package main;
 
 $x = XML::Generator->new(':strict', allowed_xml_tags => ['xmlfoo']);
-$xml = $x->widget(['wru' => 'http://www.widgets-r-us.com/xml/'],
-		  {id => 123}, $x->contents([undef]));
-ok($xml, '<wru:widget xmlns:wru="http://www.widgets-r-us.com/xml/" wru:id="123">'.
-         '<contents xmlns="" />'.
-         '</wru:widget>');
-
 
 $xml = $x->xmlfoo('biznatch');
 ok($xml, '<xmlfoo>biznatch</xmlfoo>');
@@ -341,7 +356,7 @@ ok($xml, '<!-- &#45;&#45; -->');
 $A = XML::Generator->new(namespace => ['A']);
 $B = XML::Generator->new(namespace => ['B' => 'bee']);
 $xml = $A->foo($B->bar($A->baz()));
-ok($xml, '<foo xmlns:B="bee" xmlns="A"><B:bar><baz /></B:bar></foo>');
+ok($xml, '<foo xmlns:B="bee" xmlns="A"><B:bar><baz xmlns="A" /></B:bar></foo>');
 
 $xml = $A->foo($A->bar($B->baz()));
 ok($xml, '<foo xmlns:B="bee" xmlns="A"><bar><B:baz /></bar></foo>');
@@ -356,6 +371,10 @@ ok($xml, '<foo xmlns:B="bee" xmlns="A"><bar xmlns=""><B:baz /></bar></foo>');
 $D = XML::Generator->new();
 $xml = $D->foo(['A'],$D->bar([undef],$D->baz(['B'=>'bee'])));
 ok($xml, '<foo xmlns:B="bee" xmlns="A"><bar xmlns=""><B:baz /></bar></foo>');
+
+$E = XML::Generator->new();
+$xml = $E->foo(['A'],$E->bar([undef],$E->baz(['B'=>'bee'], $E->bum(['A']))));
+ok($xml, '<foo xmlns:B="bee" xmlns="A"><bar xmlns=""><B:baz><bum xmlns="A" /></B:baz></bar></foo>');
 
 package MyGenerator;
 
@@ -377,3 +396,155 @@ $xml = html(title("My Title",copy()));
 '<html>
   <title>My Title&copy;</title>
 </html>');
+
+package TestDoc1_1;
+
+  use XML::Generator ':pretty';
+
+  $prt =   foo(bar({ baz => 3 }, bam()),
+            bar([ 'qux' => 'http://qux.com/' ],
+                  "Hey there, world"));
+
+::ok($prt,
+'<foo xmlns:qux="http://qux.com/">
+  <bar baz="3">
+    <bam />
+  </bar>
+  <qux:bar>Hey there, world</qux:bar>
+</foo>');
+
+package TestDoc1_2;
+
+  use XML::Generator ();
+
+  my $X = XML::Generator->new(':pretty');
+
+  $prt = $X->foo($X->bar({ baz => 3 }, $X->bam()),
+                 $X->bar([ 'qux' => 'http://qux.com/' ],
+                           "Hey there, world"));
+
+::ok($prt,
+'<foo xmlns:qux="http://qux.com/">
+  <bar baz="3">
+    <bam />
+  </bar>
+  <qux:bar>Hey there, world</qux:bar>
+</foo>');
+
+package TestDoc2;
+
+   use XML::Generator;
+   my $gen = XML::Generator->new(':pretty');
+   $prt = $gen->person(
+             $gen->name("Bob"),
+             $gen->age(34),
+             $gen->job("Accountant")
+          );
+
+::ok($prt,
+'<person>
+  <name>Bob</name>
+  <age>34</age>
+  <job>Accountant</job>
+</person>');
+
+   my $shoe_size = "shoe-size";
+   $xml = $gen->$shoe_size("12 1/2");
+
+::ok($xml, '<shoe-size>12 1/2</shoe-size>');
+
+  $xml = $gen->account(
+            $gen->open(['transaction'], 2000),
+            $gen->deposit(['transaction'], { date => '1999.04.03'}, 1500)
+          );
+
+::ok($xml,
+'<account>
+  <open xmlns="transaction">2000</open>
+  <deposit xmlns="transaction" date="1999.04.03">1500</deposit>
+</account>');
+
+  $xml = $gen->account(
+            $gen->open(['transaction'], 2000),
+            $gen->deposit(['transaction'], { date => '1999.04.03'},
+	      $gen->amount(['transaction'], 1500)
+	    )
+          );
+
+::ok($xml,
+'<account>
+  <open xmlns="transaction">2000</open>
+  <deposit xmlns="transaction" date="1999.04.03">
+    <amount>1500</amount>
+  </deposit>
+</account>');
+
+  $xml = $gen->widget(['wru' => 'http://www.widgets-r-us.com/xml/'],
+                      {'id'  => 123}, $gen->contents());
+
+::ok($xml,
+'<wru:widget xmlns:wru="http://www.widgets-r-us.com/xml/" id="123">
+  <contents />
+</wru:widget>');
+
+package TestDoc3;
+
+    my $html = XML::Generator->new(
+                 pretty    => 2,
+                 namespace => [HTML => "http://www.w3.org/TR/REC-html40"]);
+    $pt = $html->html(
+            $html->body(
+              $html->font({ face => 'Arial' },
+                          "Hello, there")));
+
+::ok($pt,
+'<HTML:html xmlns:HTML="http://www.w3.org/TR/REC-html40">
+  <HTML:body>
+    <HTML:font face="Arial">Hello, there</HTML:font>
+  </HTML:body>
+</HTML:html>');
+
+    $html = XML::Generator->new(
+                 pretty    => 2,
+                 namespace => ["http://www.w3.org/TR/REC-html40"]);
+    $pt = $html->html(
+            $html->body(
+              $html->font({ 'face' => 'Arial' },
+                            "Hello, there")));
+
+::ok($pt,
+'<html xmlns="http://www.w3.org/TR/REC-html40">
+  <body>
+    <font face="Arial">Hello, there</font>
+  </body>
+</html>');
+
+
+  my $a = XML::Generator->new(escape => 'always,high-bit');
+  $pt = $a->foo("<\242>");
+
+::ok($pt, '<foo>&lt;&#162;&gt;</foo>');
+
+    $gen = XML::Generator->new(escape => 'always,apos');
+    $pt = $gen->foo({'bar' => "It's all good"});
+
+::ok($pt, '<foo bar="It&apos;s all good" />');
+
+   $gen = XML::Generator->new(pretty => 2);
+   $pt = $gen->foo($gen->bar('baz'),
+                   $gen->qux({ tricky => 'no'}, 'quux'));
+
+::ok($pt,
+'<foo>
+  <bar>baz</bar>
+  <qux tricky="no">quux</qux>
+</foo>');
+
+   $gen = XML::Generator->new(namespace => [foo => "http://foo.com/"], qualifiedAttributes => 1);
+   $pt = $gen->bar({baz => 3});
+
+::ok($pt, '<foo:bar xmlns:foo="http://foo.com/" foo:baz="3" />');
+
+   $pt = $gen->bar({'wow:baz' => 3});
+
+::ok($pt, '<foo:bar xmlns:foo="http://foo.com/" wow:baz="3" />');
