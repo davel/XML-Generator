@@ -11,4 +11,9 @@ Revision history for Perl extension XML::Generator.
 	- Allowed "new" as a tag name; bholzman
 
 0.3   Tue Apr 13 09:11:13 1999
-	- Fixed undefined variables warnings as reported by John Labovitz (johnl@meer.net)
+	- Fixed undefined variables warnings as reported by John Labovitz
+	 (johnl@meer.net)
+
+0.4   Fri Jul 02 11:44:32 1999
+	- Fixed a few remarkably dumb bugs which I can't believe survived
+	  this long.  Improved the documentation slightly. 

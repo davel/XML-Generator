@@ -1,8 +1,10 @@
 XML::Generator - A simple module to help in generating XML documents
 
-Version 0.3 - 1999.03.13
+Version 0.4 - 1999.07.02
 
-Fixed undefined variables warnings, as reported by John Labovitz (johnl@meer.net)
+ Fixed a few remarkably dumb bugs which I can't believe survived
+  this long.  Improved the documentation slightly. 
+
 
 Copyright (c) 1999 Benjamin Holzman. All rights reserved.
 This program is free software; you can redistribute it and/or
