@@ -3,29 +3,29 @@ package XML::Generator;
 use strict;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = 0.3;
+$VERSION = 0.4;
 
 sub AUTOLOAD {
   my($this, $first, $second, @rest) = @_;
   my $tag = $AUTOLOAD;
   $tag =~ s/.*:://;
   if ($tag eq 'new' && !ref($this)) {
-    return bless {}, $this;
+    return bless {$first => $second, @rest}, $this;
   }
   my($xml,$attr);
   if (ref $first eq 'HASH') {
     $attr = $first;
-    unshift(@rest, $second) if $second;
+    unshift(@rest, $second) if defined $second;
   } elsif (ref $first eq 'ARRAY') {
     $tag = join ':', @$first, $tag;
     if (ref $second eq 'HASH') {
       $attr = $second;
     } else {
-      unshift(@rest, $second) if $second;
+      unshift(@rest, $second) if defined $second;
     }
-  } elsif ($first) {
+  } elsif (defined $first) {
+    unshift(@rest, $second) if defined $second;
     unshift(@rest, $first);
-    unshift(@rest, $second) if $second;
   }
   $xml = "<$tag";
   if ($attr) {
@@ -37,7 +37,7 @@ sub AUTOLOAD {
     $xml .= join $, || '',@rest;
     $xml .= "</$tag>";
   } else {
-    $xml .= '/>';
+    $xml .= ' />';
   }
 }
 1;
@@ -74,14 +74,41 @@ stringified and included as part of the content of the tag. The XML is returned
 as a string.  A valid XML document must consist of a single tag at the top
 level, but this module does nothing to enforce that.
 
+=head1 BUGS
+
+There's no easy way to use namespaces on attributes.
+
+Tags which the lexer won't interpret as subroutines are very cumbersome to
+deal with.  E.g., "some-tag".  You can do this:
+
+    $x = new XML::Generator;
+    {
+      no strict 'refs';
+      print *{(ref $x).'::some-tag'}->($x, { 'attr' => 42 }, 3);
+    }
+
+Which yields:
+
+    <some-tag attr="42">3</some-tag>
+
+But I wouldn't recommend that if you value your sanity.
+
 =head1 AUTHOR
 
-Benjamin Holzman, bholzman@bender.com
+Benjamin Holzman, bholzman@earthlink.net
 
 =head1 SEE ALSO
 
-Perl-XML FAQ
+=over 4
 
-http://www.pobox.com/~eisen/xml/perl-xml-faq.html
+=item Perl-XML FAQ
+
+http://www.perlxml.com/faq/perl-xml-faq.html
+
+=item The XML::Writer module
+
+$CPAN/modules/by-authors/id/DMEGG/XML-Writer-0.2.tar.gz
+
+=back
 
 =cut
