@@ -6,7 +6,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..14\n"; }
+BEGIN { $| = 1; print "1..17\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use XML::Generator;
 $loaded = 1;
@@ -50,7 +50,7 @@ $xml eq '<baz:bam:foo />' or print "not ";
 print "ok 9\n";
 
 $xml = $x->foo([baz],{'bar'=>42},3);
-$xml eq '<baz:foo bar="42">3</baz:foo>' or print "not ";
+$xml eq '<baz:foo baz:bar="42">3</baz:foo>' or print "not ";
 print "ok 10\n";
 
 $xml = $x->foo({'id' => 4}, 3, 5);
@@ -68,3 +68,21 @@ print "ok 13\n";
 $xml = *{(ref $x).'::foo-bar'}->($x, 42);
 $xml eq '<foo-bar>42</foo-bar>' or print "not ";
 print "ok 14\n";
+
+$x = new XML::Generator 'escape' => 'always';
+
+$xml = $x->foo({'bar' => '4"4'}, '<&>"\<');
+$xml eq '<foo bar="4&quot;4">&lt;&amp;&gt;"\&lt;</foo>' or print "not ";
+print "ok 15\n";
+
+$x = new XML::Generator 'escape' => 'true';
+
+$xml = $x->foo({'bar' => '4\"4'}, '<&>"\<');
+$xml eq '<foo bar="4"4">&lt;&amp;&gt;"<</foo>' or print "not ";
+print "ok 16\n";
+
+$x = new XML::Generator 'namespace' => 'A';
+
+$xml = $x->foo({'bar' => 42}, $x->bar(['B'], {'bar' => 54}));
+$xml eq '<A:foo A:bar="42"><B:bar B:bar="54" /></A:foo>' or print "not ";
+print "ok 17\n";

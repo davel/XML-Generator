@@ -17,3 +17,9 @@ Revision history for Perl extension XML::Generator.
 0.4   Fri Jul 02 11:44:32 1999
 	- Fixed a few remarkably dumb bugs which I can't believe survived
 	  this long.  Improved the documentation slightly. 
+
+0.5   Thu Sep 08 11:12:04 1999
+	- Fixed one lingering definedness bug
+	- Added escaping options to XMLify content
+	- Added global namespace option
+	- Fixed namespace support somewhat
