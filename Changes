@@ -9,3 +9,6 @@ Revision history for Perl extension XML::Generator.
 0.2   Wed Feb 10 12:00:00 1999
 	- Added support for namespaces; bholzman
 	- Allowed "new" as a tag name; bholzman
+
+0.3   Tue Apr 13 09:11:13 1999
+	- Fixed undefined variables warnings as reported by John Labovitz (johnl@meer.net)

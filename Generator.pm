@@ -3,7 +3,7 @@ package XML::Generator;
 use strict;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = 0.2;
+$VERSION = 0.3;
 
 sub AUTOLOAD {
   my($this, $first, $second, @rest) = @_;
@@ -24,7 +24,8 @@ sub AUTOLOAD {
       unshift(@rest, $second) if $second;
     }
   } elsif ($first) {
-    unshift(@rest, $first, $second);
+    unshift(@rest, $first);
+    unshift(@rest, $second) if $second;
   }
   $xml = "<$tag";
   if ($attr) {
@@ -33,7 +34,7 @@ sub AUTOLOAD {
   }
   if (@rest) {
     $xml .= '>';
-    $xml .= join $,,@rest;
+    $xml .= join $, || '',@rest;
     $xml .= "</$tag>";
   } else {
     $xml .= '/>';
