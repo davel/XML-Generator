@@ -1,9 +1,13 @@
 XML::Generator - A module to help in generating XML documents
 
-Version 0.7 - 2000.06.13
+Version 0.8 - 2000.07.12
 
-- Pretty-printing patch from Bron Gondwana
-- Undefined warnings patch from Bron Gondwana
+- Bug-fix for pretty-printing
+- New special tag, "xml" which takes a complete XML document and
+  "finalizes" it, so it can't be further embedded.
+- Arguments passed as scalar refs will not be escaped, even if the
+  XML::Generator object was constructed with the 'escape' => "always"
+  option.
 
 Copyright 1999-2000 Benjamin Holzman. All rights reserved.
 This program is free software; you can redistribute it and/or

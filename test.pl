@@ -7,7 +7,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..30\n"; }
+BEGIN { $| = 1; print "1..34\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use XML::Generator;
 $loaded = 1;
@@ -73,14 +73,14 @@ print "ok 14\n";
 
 $x = new XML::Generator 'escape' => 'always';
 
-$xml = $x->foo({'bar' => '4"4'}, '<&>"\<');
-$xml eq '<foo bar="4&quot;4">&lt;&amp;&gt;"\&lt;</foo>' or print "not ";
+$xml = $x->foo({'bar' => '4"4'}, '<&>"\<', \"<>");
+$xml eq '<foo bar="4&quot;4">&lt;&amp;&gt;"\&lt;<></foo>' or print "not ";
 print "ok 15\n";
 
 $x = new XML::Generator 'escape' => 'true';
 
-$xml = $x->foo({'bar' => '4\"4'}, '<&>"\<');
-$xml eq '<foo bar="4"4">&lt;&amp;&gt;"<</foo>' or print "not ";
+$xml = $x->foo({'bar' => '4\"4'}, '<&>"\<', \"&& 6 < 5");
+$xml eq '<foo bar="4"4">&lt;&amp;&gt;"<&& 6 < 5</foo>' or print "not ";
 print "ok 16\n";
 
 $x = new XML::Generator 'namespace' => 'A';
@@ -110,7 +110,7 @@ $xml eq '<?target option="value"?>' or print "not ";
 print "ok 21\n";
 
 eval {
-  $x->xml();
+  $x->xmlfoo();
 };
 $@ =~ /names beginning with 'xml' are reserved by the W3C/ or print "not ";
 print "ok 22\n";
@@ -163,3 +163,29 @@ $xml eq
   <bar />
 </foo>' or print "not ";
 print "ok 30\n";
+
+$x = new XML::Generator 'conformance' => 'strict';
+$xml = $x->foo(42);
+$x->xml($xml);
+$xml eq
+'<?xml version="1.0" standalone="yes"?>
+<foo>42</foo>' or print "not ";
+print "ok 31\n";
+
+eval {
+  $x->xml();
+};
+$@ =~ /usage/ or print "not ";
+print "ok 32\n";
+
+eval {
+  $x->xml(3);
+};
+$@ =~ /not an XML document/ or print "not ";
+print "ok 33\n";
+
+eval {
+  $xml = $x->bar($xml);
+};
+$@ =~ /cannot embed/ or print "not ";
+print "ok 34\n";

@@ -5,7 +5,7 @@ use Carp;
 use vars qw/$VERSION $AUTOLOAD %xmltags @allowed_options/;
 use constant PERL_VERSION => $];
 
-$VERSION = 0.7;
+$VERSION = '0.8';
 
 =head1 NAME
 
@@ -110,16 +110,17 @@ The contents and the values of each attribute have the illegal XML
 characters escaped if this option is supplied.  If the value is 'always',
 then &, < and > (and " within attribute values) will be converted into the
 corresponding XML entity.  If the value is any other true value, then the
-escaping will be turned off if the character in question is preceded by a
-backslash.  So, for example,
+escaping will be turned off character-by-character if the character in question
+is preceded by a backslash, or for the entire string if it is supplied as a
+scalar reference.  So, for example,
 
 	my $a = XML::Generator->new('escape' => 'always');
 	my $b = XML::Generator->new('escape' => 'true');
-	print $a->foo('<', $b->bar('3 \> 4'), '\&', '>');
+	print $a->foo('<', $b->bar('3 \> 4', \" && 6 < 5"), '\&', '>');
 
 would yield
 
-	<foo>&lt;<bar>3 > 4</bar>\&amp;&gt;</foo>
+	<foo>&lt;<bar>3 > 4 && 6 < 5</bar>\&amp;&gt;</foo>
 
 =head2 pretty
 
@@ -128,7 +129,7 @@ that you might also want to edit by hand), pass an integer for the
 number of spaces per level of indenting, eg.
 
        my $gen = XML::Generator->new('pretty' => 2);
-        print $gen->foo($gen->bar('baz'),
+       print $gen->foo($gen->bar('baz'),
                        $gen->qux({'tricky' => 'no'}, 'quux')
                        );
 
@@ -145,9 +146,9 @@ If the value of this option is 'strict', a number of syntactic
 checks are performed to ensure that generated XML conforms to the
 formal XML specification.  In addition, since entity names beginning
 with 'xml' are reserved by the W3C, inclusion of this option enables
-several special tag names; xmlpi, xmlcmnt, xmldecl and xmlcdata, to allow
-generation of processing instructions, comments, XML declarations and
-character data sections, respectively.
+several special tag names; xmlpi, xmlcmnt, xmldecl, xmlcdata, and xml to
+allow generation of processing instructions, comments, XML declarations,
+character data sections and "final" XML documents, respectively.
 
 See L<"XML CONFORMANCE"> and L<"SPECIAL TAGS"> for more information.
 
@@ -184,10 +185,17 @@ sub tag {
     ck_syntax($tag);
   }
 
+  # check for attempt to embed "final" document
+  for (@args) {
+    if (UNIVERSAL::isa($_, 'XML::Generator::final')) {
+      croak("cannot embed XML document");
+    }
+  }
+
   $namespace = $this->{'namespace'} || '';
 
   # check for supplied namespace
-  if (ref $args[0] eq 'ARRAY') {
+  if (defined($args[0]) && ref $args[0] eq 'ARRAY') {
     my $names = shift @args;
     if ($this->{'conformance'} eq 'strict' &&
 	@$names > 1) {
@@ -200,7 +208,7 @@ sub tag {
   $namespace =~ s/:?$/:/ if $namespace;
 
   # check for supplied attributes
-  if (ref $args[0] eq 'HASH') {
+  if (defined($args[0]) && ref $args[0] eq 'HASH') {
     $attr = shift @args;
   }
 
@@ -209,12 +217,20 @@ sub tag {
     my $always = $this->{'escape'} eq 'always';  # boolean: always quote
     if ($attr) {
       foreach my $key (keys %{$attr}) {
+        next unless defined($attr->{$key});
         escape($attr->{$key}, 1, $always);
       }
     }
     for (@args) {
-      escape($_, 0, $always) unless  # don't quote subobjects
-	UNIVERSAL::isa($_, 'XML::Generator::overload');
+      next unless defined($_);
+
+      # perform escaping, except on sub-documents or simple scalar refs
+      if (ref $_ eq "SCALAR") {
+	# un-ref it
+	$_ = $$_;
+      } elsif (! UNIVERSAL::isa($_, 'XML::Generator::overload') ) {
+        escape($_, 0, $always);
+      }
     }
   }
 
@@ -223,6 +239,7 @@ sub tag {
 
   if ($attr) {
     while (my($k, $v) = each %$attr) {
+      next unless defined($k) && defined($v);
       if ($this->{'conformance'} eq 'strict') {
 	# allow supplied namespace in attribute names
 	if ($k =~ s/^([^:]+)://) {
@@ -247,16 +264,17 @@ sub tag {
       my $prettyend = '';
       my $spaces = " " x $this->{'pretty'};
       foreach my $arg (@args) {
+        next unless defined ($arg);
         if (UNIVERSAL::isa($arg, 'XML::Generator::overload')) {
           $xml .= "\n$spaces";
           $prettyend = "\n";
-          $arg =~ s/\n/\n$spaces/egs;
+          $arg =~ s/\n/\n$spaces/gs;
         }
         $xml .= "$arg";
       }
       $xml .= $prettyend;
     } else {
-      $xml .= join $, || '', @args;
+      $xml .= join $, || '', grep { defined($_) } @args;
     }
     $xml .= "</$namespace$tag>";
   } else {
@@ -321,6 +339,12 @@ XML Declaration.
 Character data section; arguments are concatenated and placed inside
 <![CDATA[ ... ]]> character data section delimiters.  Any occurences of
 ']]>' in the concatenated arguments are converted to ']]&gt;'.
+
+=head2 xml
+
+"Final" XML document.  Must be called with one and exactly one argument, which
+must be an XML::Generator-produced XML document.  Prepends an XML declaration,
+and re-blesses the argument into a "final" class, which can't be embedded.
 
 =cut
 
@@ -402,6 +426,24 @@ Character data section; arguments are concatenated and placed inside
 
       return bless \$xml, 'XML::Generator::overload';
     },
+
+  "xml" =>
+    sub {
+      my($this) = shift;
+      if (@_ != 1) {
+	croak "usage: ->xml( \$root )";
+      }
+      my($root) = @_;
+      
+      if (! UNIVERSAL::isa($root, 'XML::Generator::overload') ) {
+	croak "argument to ->xml() is not an XML document";
+      }
+
+      $$root = $this->xmldecl() . "\n" . $$root;
+
+      return bless $root, 'XML::Generator::final';
+    },
+
 );
 
 # Collect all escaping into one place
@@ -432,7 +474,7 @@ sub escape ($$$) {
 sub ck_syntax {
   my($name) = @_;
   if (PERL_VERSION >= 5.6) {
-    unless ($name =~ /^[\p{IsAlpha}_][\p{IsAlnum}\-\.]*$/) {
+    unless ($name =~ /^(?:\p{IsAlpha}|_)(?:\p{IsAlnum}|[\-.])*$/) {
       if ($name =~ /^\p{IsDigit}/) {
 	croak "name [$name] may not begin with a number";
       }
@@ -501,8 +543,11 @@ sub AUTOLOAD {
       $XML::Generator::xmltags{$tag}) {
       return $XML::Generator::xmltags{$tag}->($this, @_);
   }
-  return XML::Generator::tag($this, $tag, @_);
+  unshift(@_, $this, $tag);
+  goto &XML::Generator::tag;
 }
+
+sub DESTROY { }
 
 package XML::Generator::overload;
 
@@ -510,6 +555,12 @@ use overload '""'   => sub { ${$_[0]} };
 use overload '0+'   => sub { ${$_[0]} };
 use overload 'bool' => sub { ${$_[0]} };
 use overload 'eq'   => sub { ${$_[0]} eq $_[1] };
+
+sub DESTROY { }
+
+package XML::Generator::final;
+
+use base 'XML::Generator::overload';
 
 1;
 __END__
@@ -530,11 +581,11 @@ http://www.perlxml.com/faq/perl-xml-faq.html
 
 =item The XML::Writer module
 
-$CPAN/modules/by-authors/id/DMEGG/XML-Writer-0.4.tar.gz
+http://search.cpan.org/search?dist=XML-Writer-0.4
 
 =item The XML::Handler::YAWriter module
 
-$CPAN/modules/by-authors/id/KRAEHE/XML-Handler-YAWriter-0.15.tar.gz
+http://search.cpan.org/search?XML-Handler-YAWriter-0.16
 
 =back
 

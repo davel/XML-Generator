@@ -40,3 +40,11 @@ Revision history for Perl extension XML::Generator.
 0.7   Mon Jun 13 09:14:32 2000
 	- Pretty-printing patch from Bron Gondwana
 	- Undefined warnings patch from Bron Gondwana
+
+0.8   Wed Jul 12 17:10:12 2000
+	- Bug-fix for pretty-printing
+	- New special tag, "xml" which takes a complete XML document and
+	  "finalizes" it, so it can't be further embedded.
+	- Arguments passed as scalar refs will not be escaped, even if the
+	  XML::Generator object was constructed with the 'escape' => "always"
+	  option.
