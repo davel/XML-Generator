@@ -134,3 +134,6 @@ Revision history for Perl extension XML::Generator.
 	  was configured with the 'pretty' option.
 	- Added allowedXMLTags (alias to allowed_xml_tags) and qualified_attributes
 	  (alias to qualifiedAttributes) to rationalize interface.
+
+0.99_02  Tue Oct 19 23:02:00 2004
+	- Fixed mistake in RDF example.

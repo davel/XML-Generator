@@ -538,23 +538,24 @@ $pt = $gen->bam(['foo' => 'foo uri', '#default' => 'default uri']);
 
 package TestRDF;
 
+my @contact = (contact => "http://www.w3.org/2000/10/swap/pim/contact#");
+
 $gen = XML::Generator->new(':pretty');
 $pt = $gen->xml(
              $gen->RDF([ rdf     => "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-                         contact => "http://www.w3.org/2000/10/swap/pim/contact#" ],
-                $gen->Person(['contact'], { 'rdf:about' => "http://www.w3.org/People/EM/contact#me" },
-                  $gen->fullName(['contact'], 'Eric Miller'),
-                  $gen->mailbox(['contact'], {'rdf:resource' => "mailto:em\@w3.org"}),
-                  $gen->personalTitle(['contact'], 'Dr.'))));
+                         @contact ],
+                $gen->Person(\@contact, { 'rdf:about' => "http://www.w3.org/People/EM/contact#me" },
+                  $gen->fullName(\@contact, 'Eric Miller'),
+                  $gen->mailbox(\@contact, {'rdf:resource' => "mailto:em\@w3.org"}),
+                  $gen->personalTitle(\@contact, 'Dr.'))));
 
 ::ok($pt, '<?xml version="1.0" standalone="yes"?>
 <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
          xmlns:contact="http://www.w3.org/2000/10/swap/pim/contact#">
-  <Person xmlns="contact"
-          rdf:about="http://www.w3.org/People/EM/contact#me">
-    <fullName>Eric Miller</fullName>
-    <mailbox rdf:resource="mailto:em@w3.org" />
-    <personalTitle>Dr.</personalTitle>
-  </Person>
+  <contact:Person rdf:about="http://www.w3.org/People/EM/contact#me">
+    <contact:fullName>Eric Miller</contact:fullName>
+    <contact:mailbox rdf:resource="mailto:em@w3.org" />
+    <contact:personalTitle>Dr.</contact:personalTitle>
+  </contact:Person>
 </rdf:RDF>');
 

@@ -19,6 +19,9 @@ To get this:
 
 RECENT CHANGES
 ------ -------
+Version 0.99_02 - 2004.10.19
+- Fixed mistake in RDF example.
+
 Version 0.99_01 - 2004.10.19
 - Changed default behavior of 'use XML::Generator' to not attempt to export
   AUTOLOAD. Removed ':noimport' option.

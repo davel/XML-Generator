@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = '0.99_01';
+$VERSION = '0.99_02';
 
 =head1 NAME
 
@@ -171,22 +171,22 @@ Here is an example that uses the two-argument form of the namespace:
 Here is an example that uses multiple namespaces.  It generates the
 first example from the RDF primer (L<http://www.w3.org/TR/rdf-primer/>).
 
+    my $contactNS = [contact => "http://www.w3.org/2000/10/swap/pim/contact#"];
     $xml = $gen->xml(
 	     $gen->RDF([ rdf     => "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-		         contact => "http://www.w3.org/2000/10/swap/pim/contact#" ],
-		$gen->Person(['contact'], { 'rdf:about' => "http://www.w3.org/People/EM/contact#me" },
-		  $gen->fullName(['contact'], 'Eric Miller'),
-		  $gen->mailbox(['contact'], {'rdf:resource' => "mailto:em@w3.org"}),
-		  $gen->personalTitle(['contact'], 'Dr.'))));
+		         @$contactNS ],
+		$gen->Person($contactNS, { 'rdf:about' => "http://www.w3.org/People/EM/contact#me" },
+		  $gen->fullName($contactNS, 'Eric Miller'),
+		  $gen->mailbox($contactNS, {'rdf:resource' => "mailto:em@w3.org"}),
+		  $gen->personalTitle($contactNS, 'Dr.'))));
 
     <?xml version="1.0" standalone="yes"?>
     <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 	     xmlns:contact="http://www.w3.org/2000/10/swap/pim/contact#">
-      <Person xmlns="contact"
-	      rdf:about="http://www.w3.org/People/EM/contact#me">
-	<fullName>Eric Miller</fullName>
-	<mailbox rdf:resource="mailto:em@w3.org" />
-	<personalTitle>Dr.</personalTitle> 
+      <contact:Person rdf:about="http://www.w3.org/People/EM/contact#me">
+	<contact:fullName>Eric Miller</contact:fullName>
+	<contact:mailbox rdf:resource="mailto:em@w3.org" />
+	<contact:personalTitle>Dr.</contact:personalTitle> 
       </Person>
     </rdf:RDF>
 
