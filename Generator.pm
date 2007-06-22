@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = '0.99_02';
+$VERSION = '1.0';
 
 =head1 NAME
 
@@ -294,24 +294,28 @@ yields
 The contents and the values of each attribute have any illegal XML
 characters escaped if this option is supplied.  If the value is 'always',
 then &, < and > (and " within attribute values) will be converted into
-the corresponding XML entity.  If the value is any other true value, then
-the escaping will be turned off character-by-character if the character
-in question is preceded by a backslash, or for the entire string if it
-is supplied as a scalar reference.  So, for example,
+the corresponding XML entity, although & will not be converted if it
+looks like it could be part of a valid entity (but see below).  If the
+value is 'unescaped', then the escaping will be turned off character-by-
+character if the character in question is preceded by a backslash, or for
+the entire string if it is supplied as a scalar reference.  So, for example,
 
 	use XML::Generator escape => 'always';
 
-	one('<');    # <one>&lt;</one>
-	two('\&');   # <two>\&amp;</two>
-	three(\'>'); # <three>&gt;</three> (scalar refs always allowed)
+	one('<');      # <one>&lt;</one>
+	two('\&');     # <two>\&amp;</two>
+	three(\'>');   # <three>&gt;</three> (scalar refs always allowed)
+	four('&lt;');  # <four>&lt;</four> (looks like an entity)
+	five('&#34;'); # <five>&#34;</five> (looks like an entity)
 
 but
 
-	use XML::Generator escape => 1;
+	use XML::Generator escape => 'unescaped';
 
-	one('<');    # <one>&lt;</one>
-	two('\&');   # <two>&</two>
-	three(\'>'); # <three>></three> (aiee!)
+	one('<');     # <one>&lt;</one>
+	two('\&');    # <two>&</two>
+	three(\'>');  # <three>></three> (aiee!)
+	four('&lt;'); # <four>&amp;lt;</four> (no special case for entities)
 
 By default, high-bit data will be passed through unmodified, so that
 UTF-8 data can be generated with pre-Unicode perls.  If you know that
@@ -330,12 +334,17 @@ yields
 Because XML::Generator always uses double quotes ("") around attribute
 values, it does not escape single quotes.  If you want single quotes
 inside attribute values to be escaped, use the value 'apos' along with
-'always' or 'true' for the escape option.  For example:
+'always' or 'unescaped' for the escape option.  For example:
 
     my $gen = XML::Generator->new(escape => 'always,apos');
     print $gen->foo({'bar' => "It's all good"});
 
     <foo bar="It&apos;s all good" />
+
+If you actually want & to be converted to &amp; even if it looks like it
+could be part of a valid entity, use the value 'even-entities' along with
+'always'.  Supplying 'even-entities' to the 'unescaped' option is meaningless
+as entities are already escaped with that option.
 
 =head2 pretty
 
@@ -582,7 +591,12 @@ sub new {
 	$options{'escape'} |= XML::Generator::util::ESCAPE_HIGH_BIT();
       } elsif ($1 eq 'apos') {
 	$options{'escape'} |= XML::Generator::util::ESCAPE_APOS();
+      } elsif ($1 eq 'even-entities') {
+	$options{'escape'} |= XML::Generator::util::ESCAPE_EVEN_ENTITIES();
       } elsif ($1) {
+	if ($1 ne 'unescaped') {
+	  Carp::carp "option 'escape' => '$1' deprecated; use 'escape' => 'unescaped'";
+	}
 	$options{'escape'} |= XML::Generator::util::ESCAPE_TRUE()
 			   |  XML::Generator::util::ESCAPE_GT();
       }
@@ -1025,6 +1039,7 @@ use constant ESCAPE_HIGH_BIT => 1<<2;
 use constant ESCAPE_APOS     => 1<<3;
 use constant ESCAPE_ATTR     => 1<<4;
 use constant ESCAPE_GT       => 1<<5;
+use constant ESCAPE_EVEN_ENTITIES => 1<<6;
 
 sub parse_args {
   # this parses the args and returns a namespace and attr
@@ -1169,21 +1184,52 @@ sub c_tag {
 	$xml .= '>';
 	if ($indent) {
 	  my $prettyend = '';
-	  
+
 	  foreach my $arg (@args) {
 	    next unless defined $arg;
-	    if ( UNIVERSAL::isa($arg, 'XML::Generator::overload') &&
-	    (! ( UNIVERSAL::isa($arg, 'XML::Generator::cdata'   ) ||
-		 UNIVERSAL::isa($arg, 'XML::Generator::pi'      )))) {
-	      $xml .= "\n$indent";
-	      $prettyend = "\n";
-	      XML::Generator::util::_fixupNS($namespace, $arg) if ref $arg->[0];
-	      $arg =~ s/\n/\n$indent/gs;
+	    if ( UNIVERSAL::isa($arg, 'XML::Generator::cdata'   ) ) {
+	      my $copy = $xml;
+	      push @xml, $copy, $arg;
+	      $xml = '';
+	    } else {
+	      if ( UNIVERSAL::isa($arg, 'XML::Generator::overload') &&
+	           ! UNIVERSAL::isa($arg, 'XML::Generator::pi') ) {
+		$xml .= "\n$indent";
+		$prettyend = "\n";
+		XML::Generator::util::_fixupNS($namespace, $arg) if ref $arg->[0];
+
+		my @cdata;
+		for my $i (0..$#$arg) {
+		  if (UNIVERSAL::isa($arg->[$i], 'XML::Generator::cdata')) {
+		    push @cdata, $arg->[$i];
+		    $arg->[$i] = "\001";
+		  }
+		}
+
+		$arg =~ s/\n/\n$indent/gs;
+
+		if (@cdata) {
+		  my @pieces = split "\001", $arg;
+
+		  my $copy = $xml;
+		  push @xml, $copy;
+		  $xml = '';
+		  $arg = '';
+
+		  for my $i (0..$#pieces) {
+		    if (defined $cdata[$i]) {
+		      push @xml, $pieces[$i], $cdata[$i];
+		    } else {
+		      push @xml, $pieces[$i];
+		    }
+		  }
+		}
+	      }
+	      $xml .= "$arg";
 	    }
-	    $xml .= "$arg";
 	  }
 	  $xml .= $prettyend;
-	  @xml = ($xml, "</$prefix$tag>");
+	  push @xml, ($xml, "</$prefix$tag>");
 	} else {
 	  @xml = $xml;
 	  foreach my $arg (grep defined, @args) {
@@ -1290,8 +1336,12 @@ sub escape {
   return unless defined $_[0];
 
   my $f = $_[1];
-  if ($_[1] & ESCAPE_ALWAYS) {
-    $_[0] =~ s/&(?!(#[0-9]+|#x[0-9a-fA-F]+|\w+);)/&amp;/g;
+  if ($f & ESCAPE_ALWAYS) {
+    if ($f & ESCAPE_EVEN_ENTITIES) {
+      $_[0] =~ s/&/&amp;/g;
+    } else {
+      $_[0] =~ s/&(?!(?:#[0-9]+|#x[0-9a-fA-F]+|\w+);)/&amp;/g;
+    }
 
     $_[0] =~ s/</&lt;/g;
     $_[0] =~ s/>/&gt;/g   if $f & ESCAPE_GT;
@@ -1410,6 +1460,7 @@ sub stringify {
       }
     }
   }
+
   join $, || "", @{$_[0]}
 }
 

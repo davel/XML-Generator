@@ -2,7 +2,7 @@
 
 use Test;
 
-BEGIN { $| = 1; plan tests => 95; }
+BEGIN { $| = 1; plan tests => 97; }
 
 use XML::Generator ();
 ok(1);
@@ -22,7 +22,7 @@ ok($xml, '<baz foo="3" />');
 $xml = $x->bam({'bar'=>42},$x->foo(),"qux");
 ok($xml, '<bam bar="42"><foo />qux</bam>');
 
-eval { require 'Tie::IxHash'; };
+eval { require Tie::IxHash; };
 if ($@) {
   skip('Tie::IxHash not installed', 1);
 } else {
@@ -69,7 +69,7 @@ $x = new XML::Generator 'escape' => 'always';
 $xml = $x->foo({'bar' => '4"4'}, '<&>"\<', \"<>");
 ok($xml, '<foo bar="4&quot;4">&lt;&amp;&gt;"\&lt;<></foo>');
 
-$x = new XML::Generator 'escape' => 'true';
+$x = new XML::Generator 'escape' => 'unescaped';
 
 $xml = $x->foo({'bar' => '4\"4'}, '<&>"\<', \"&& 6 < 5");
 ok($xml, '<foo bar="4"4">&lt;&amp;&gt;"<&& 6 < 5</foo>');
@@ -160,6 +160,14 @@ ok($xml,
 
 $xml = $x->foo($x->xmlcdata("bar"), $x->xmlpi("baz"));
 ok($xml, '<foo><![CDATA[bar]]><?baz?></foo>');
+
+# test that cdata is not intended when pretty printing is on
+
+$xml = $x->foo($x->bam($x->xmlcdata("bar\nbar")));
+ok($xml, '<foo>
+  <bam><![CDATA[bar
+bar]]></bam>
+</foo>');
 
 $x = new XML::Generator 'conformance' => 'strict';
 $xml = $x->foo(42);
@@ -559,3 +567,8 @@ $pt = $gen->xml(
   </contact:Person>
 </rdf:RDF>');
 
+package TestEscapingEntities;
+
+use XML::Generator escape => 'always,even-entities', conformance => 'strict', pretty => 2;
+
+::ok(tag("&gt;"), '<tag>&amp;gt;</tag>');

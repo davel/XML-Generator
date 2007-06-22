@@ -19,60 +19,19 @@ To get this:
 
 RECENT CHANGES
 ------ -------
-Version 0.99_02 - 2004.10.19
-- Fixed mistake in RDF example.
 
-Version 0.99_01 - 2004.10.19
-- Changed default behavior of 'use XML::Generator' to not attempt to export
-  AUTOLOAD. Removed ':noimport' option.
-- Allowed more than two components in a namespace, to allow explicit xmlns:
-  attributes to be output on demand.  Introduced '#default' token.
-- Improved output aesthetics when there are lot of attributes and the generator
-  was configured with the 'pretty' option.
-- Added allowedXMLTags (alias to allowed_xml_tags) and qualified_attributes
-  (alias to qualifiedAttributes) to rationalize interface.
-  
-Version 0.99 - 2004.3.23
-- Removed automatic prefixing of attribute names when using a namespace.
-- Added 'qualifiedAttributes' constructor option to emulate prior attribute
-  prefixing behavior.
-- Always syntax check attribute names under strict conformance.
-- Add documentation on using Tie::IxHash to get predictable attribute ordering.
-- Allow tag 'AUTOLOAD'.
-- Fixed bug with default namespace.
-- More tests
-
-Version 0.98 - 2004.3.1
-- Fixed bug in DOM.t when XML::DOM not installed (caused by fix in 0.97)
-
-Version 0.97 - 2004.3.1
-- Fixed bugs in DOM.t reported by David Wheeler.
-
-Version 0.96 - 2004.2.29
-- More documentation fixups.
-- Only check for xml() subs under strict conformance.
-- Small performance optimizations.
-
-Version 0.95 - 2004.2.29
-- Enhanced STACKED AUTOLOAD feature to provide a default import()
-- Documentation fixups.
-
-Version 0.94 - 2004.2.29
-- FIXED IMPLEMENTATION OF NAMESPACES!! XML::Generator is now conformant.
-  Note that the semantics of namespaces have changed!
-- Implemented AUTOLOAD exporting to simplify syntax.
-- Implement STACKED AUTOLOADs to simplify sub-classing.
-- Added "macro" options ':standard', ':std', ':strict' and ':pretty'.
-- Added new 'allowed_xml_tags' option to allow tags starting with 'xml'
-  under strict conformance.
-- Documented the 'version', 'encoding' and 'dtd' options.
-- Added arguments to xmldecl() to allow more control.
-- Changed XML comment behavior when escaping '--' to escape both dashes.
-- Fixed memory leak in constructor. Bug #4513.
-- Fixed bug in t/DOM.t that caused it to fail when DOM.pm was installed. Bug #3220.
+1.0      Fri Jun 22 16:51:00 2007
+	- Fixed bug #23594, "Embedded escaping does not work as expected",
+	  reported by M. Zizka; clarified documentation and added 'even-entities'
+	  argument to 'escape' parameter.
+	- As part of above fix, supplying an unexpected true argument to 'escape'
+	  parameter results in warning. 
+	- Fixed bug #18609, "cdata also pretty-printed", reported by Daniel Schroeer.
+	- Fixed bug #18656, reported by Peter (Stig) Edwards; just removed single
+	  quotes around Tie::IxHash in require line.
 
 COPYRIGHT
 ---------
-Copyright 1999-2004 Benjamin Holzman. All rights reserved.
+Copyright 1999-2007 Benjamin Holzman. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
