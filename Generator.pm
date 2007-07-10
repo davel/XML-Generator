@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = '1.0';
+$VERSION = '1.01';
 
 =head1 NAME
 
@@ -40,14 +40,14 @@ Either of the above yield:
 =head1 DESCRIPTION
 
 In general, once you have an XML::Generator object, you then simply call
-methods on that object named for each XML tag you wish to generate. 
+methods on that object named for each XML tag you wish to generate.
 
 XML::Generator can also arrange for undefined subroutines in the caller's
 package to generate the corresponding XML, by exporting an C<AUTOLOAD>
-subroutine to your package.  Just supply an ':import' argument to your
-C<use XML::Generator;> call.  If you already have an C<AUTOLOAD> defined
-then XML::Generator can be configured to cooperate with it.  See L<"STACKABLE
-AUTOLOADs">.
+subroutine to your package.  Just supply an ':import' argument to
+your C<use XML::Generator;> call.  If you already have an C<AUTOLOAD>
+defined then XML::Generator can be configured to cooperate with it.
+See L<"STACKABLE AUTOLOADs">.
 
 Say you want to generate this XML:
 
@@ -67,10 +67,10 @@ Here's a snippet of code that does the job, complete with pretty printing:
             $gen->job("Accountant")
          );
 
-The only problem with this is if you want to use a tag name that Perl's
-lexer won't understand as a method name, such as "shoe-size".  Fortunately,
-since you can store the name of a method in a variable, there's a simple
-work-around:
+The only problem with this is if you want to use a tag name that
+Perl's lexer won't understand as a method name, such as "shoe-size".
+Fortunately, since you can store the name of a method in a variable,
+there's a simple work-around:
 
    my $shoe_size = "shoe-size";
    $xml = $gen->$shoe_size("12 1/2");
@@ -101,28 +101,28 @@ This produces
 An array ref can also be supplied as the first argument to indicate
 a namespace for the element and the attributes.
 
-B<WARNING! ** BACKWARDS INCOMPATIBILITY **>
+If there is one element in the array, it is considered the URI of
+the default namespace, and the tag will have an xmlns="URI" attribute
+added automatically.  If there are two elements, the first should be
+the tag prefix to use for the namespace and the second element should
+be the URI.  In this case, the prefix will be used for the tag and an
+xmlns:PREFIX attribute will be automatically added.  Prior to version
+0.99, this prefix was also automatically added to each attribute name.
+Now, the default behavior is to leave the attributes alone (although you
+may always explicitly add a prefix to an attribute name).  If the prior
+behavior is desired, use the constructor option C<qualified_attributes>.
 
-As of version 0.94, the semantics of namespaces have changed.  Now, if there is
-one element in the array, it is considered the URI of the default namespace, and
-the tag will have an xmlns="URI" attribute added automatically.  If there are two
-elements, the first should be the tag prefix to use for the namespace and the
-second element should be the URI.  In this case, the prefix will be used for
-the tag and an xmlns:PREFIX attribute will be automatically added.  Prior to version
-0.99, this prefix was also automatically added to each attribute name.  Now, the
-default behavior is to leave the attributes alone (although you may always explicitly
-add a prefix to an attribute name).  If the prior behavior is desired, use the
-constructor option C<qualified_attributes>.
+If you specify more than two elements, then each pair should correspond
+to a tag prefix and the corresponding URL.  An xmlns:PREFIX attribute
+will be added for each pair, and the prefix from the first such pair
+will be used as the tag's namespace.  If you wish to specify a default
+namespace, use '#default' for the prefix.  If the default namespace is
+first, then the tag will use the default namespace itself.
 
-If you specify more than two elements, then each pair should correspond to a tag
-prefix and the corresponding URL.  An xmlns:PREFIX attribute will be added for each
-pair, and the prefix from the first such pair will be used as the tag's namespace.
-If you wish to specify a default namespace, use '#default' for the prefix.  If the
-default namespace is first, then the tag will use the default namespace itself.
-
-If you want to specify a namespace as well as attributes, you can make the
-second argument a hash ref.  If you do it the other way around, the array ref
-will simply get stringified and included as part of the content of the tag.
+If you want to specify a namespace as well as attributes, you can make
+the second argument a hash ref.  If you do it the other way around,
+the array ref will simply get stringified and included as part of the
+content of the tag.
 
 Here's an example to show how the attribute and namespace parameters work:
 
@@ -223,9 +223,7 @@ Equivalent to
 
 =head2 namespace
 
-B<WARNING! ** BACKWARDS INCOMPATIBILITY **>
-
-As of version 0.94, this must be an array reference containing one or
+This value of this option must be an array reference containing one or
 two values.  If the array contains one value, it should be a URI and will
 be the value of an 'xmlns' attribute in the top-level tag.  If there are
 two or more elements, the first of each pair should be the namespace
@@ -294,11 +292,11 @@ yields
 The contents and the values of each attribute have any illegal XML
 characters escaped if this option is supplied.  If the value is 'always',
 then &, < and > (and " within attribute values) will be converted into
-the corresponding XML entity, although & will not be converted if it
-looks like it could be part of a valid entity (but see below).  If the
-value is 'unescaped', then the escaping will be turned off character-by-
-character if the character in question is preceded by a backslash, or for
-the entire string if it is supplied as a scalar reference.  So, for example,
+the corresponding XML entity, although & will not be converted if it looks
+like it could be part of a valid entity (but see below).  If the value is
+'unescaped', then the escaping will be turned off character-by- character
+if the character in question is preceded by a backslash, or for the
+entire string if it is supplied as a scalar reference.  So, for example,
 
 	use XML::Generator escape => 'always';
 
@@ -642,16 +640,16 @@ sub DESTROY { delete $tag_factory{$_[0]} }
 
 When the 'conformance' => 'strict' option is supplied, a number of
 syntactic checks are enabled.  All entity and attribute names are
-checked to conform to the XML specification, which states that they
-must begin with either an alphabetic character or an underscore and
-may then consist of any number of alphanumerics, underscores, periods
-or hyphens.  Alphabetic and alphanumeric are interpreted according to
-the current locale if 'use locale' is in effect and according to the
-Unicode standard for Perl versions >= 5.6.  Furthermore, entity or
-attribute names are not allowed to begin with 'xml' (in any case),
-although a number of special tags beginning with 'xml' are allowed
-(see L<"SPECIAL TAGS">). Note that you can also supply an explicit
-list of allowed tags with the 'allowed_xml_tags' option.
+checked to conform to the XML specification, which states that they must
+begin with either an alphabetic character or an underscore and may then
+consist of any number of alphanumerics, underscores, periods or hyphens.
+Alphabetic and alphanumeric are interpreted according to the current
+locale if 'use locale' is in effect and according to the Unicode standard
+for Perl versions >= 5.6.  Furthermore, entity or attribute names are not
+allowed to begin with 'xml' (in any case), although a number of special
+tags beginning with 'xml' are allowed (see L<"SPECIAL TAGS">). Note
+that you can also supply an explicit list of allowed tags with the
+'allowed_xml_tags' option.
 
 =head1 SPECIAL TAGS
 
@@ -696,9 +694,9 @@ sub xmlpi {
 
 =head2 xmlcmnt
 
-Comment.  Arguments are concatenated and placed inside <!-- ... --> comment
-delimiters.  Any occurences of '--' in the concatenated arguments are
-converted to '&#45;&#45;'
+Comment.  Arguments are concatenated and placed inside <!-- ... -->
+comment delimiters.  Any occurences of '--' in the concatenated arguments
+are converted to '&#45;&#45;'
 
 =cut
 
@@ -719,24 +717,25 @@ sub xmlcmnt {
 
 =head2 xmldecl(@args)
 
-Declaration.  This can be used to specify the version, encoding, and other
-XML-related declarations (i.e., anything inside the <?xml?> tag).  @args can
-be used to control what is output, as keyword-value pairs.
+Declaration.  This can be used to specify the version, encoding, and
+other XML-related declarations (i.e., anything inside the <?xml?> tag).
+@args can be used to control what is output, as keyword-value pairs.
 
-By default, the version is set to the value specified in the constructor, or
-to 1.0 if it was not specified.  This can be overridden by providing a 'version'
-key in @args.  If you do not want the version at all, explicitly provide undef
-as the value in @args.
+By default, the version is set to the value specified in the constructor,
+or to 1.0 if it was not specified.  This can be overridden by providing a
+'version' key in @args.  If you do not want the version at all, explicitly
+provide undef as the value in @args.
 
-By default, the encoding is set to the value specified in the constructor; if
-no value was specified, the encoding will be left out altogether.  Provide an
-'encoding' key in @args to override this.
+By default, the encoding is set to the value specified in the constructor;
+if no value was specified, the encoding will be left out altogether.
+Provide an 'encoding' key in @args to override this.
 
-If a dtd was set in the constructor, the standalone attribute of the declaration
-will be set to 'no' and the doctype declaration will be appended to the XML
-declartion, otherwise the standalone attribute will be set to 'yes'.  This can be
-overridden by providing a 'standalone' key in @args.  If you do not want the
-standalone attribute to show up, explicitly provide undef as the value.
+If a dtd was set in the constructor, the standalone attribute of the
+declaration will be set to 'no' and the doctype declaration will be
+appended to the XML declartion, otherwise the standalone attribute will
+be set to 'yes'.  This can be overridden by providing a 'standalone'
+key in @args.  If you do not want the standalone attribute to show up,
+explicitly provide undef as the value.
 
 =cut
 
@@ -789,7 +788,7 @@ sub xmldecl {
 
 =head2 xmldtd
 
-DTD <!DOCTYPE> tag creation. The format of this method is different from 
+DTD <!DOCTYPE> tag creation. The format of this method is different from
 others. Since DTD's are global and cannot contain namespace information,
 the first argument should be a reference to an array; the elements are
 concatenated together to form the DTD:
@@ -1526,10 +1525,6 @@ Modular rewrite to enable subclassing
 =item The XML::Writer module
 
 http://search.cpan.org/search?mode=module&query=XML::Writer
-
-=item The XML::Handler::YAWriter module
-
-http://search.cpan.org/search?mode=module&query=XML::Handler::YAWriter
 
 =back
 

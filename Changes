@@ -1,5 +1,8 @@
 Revision history for Perl extension XML::Generator.
 
+1.01     Tue Jul 8  11:45:00 2007
+	- Documentation cleanup.
+
 1.0      Fri Jun 22 16:51:00 2007
 	- Fixed bug #23594, "Embedded escaping does not work as expected",
 	  reported by M. Zizka; clarified documentation and added 'even-entities'
