@@ -2,7 +2,7 @@
 
 use Test;
 
-BEGIN { $| = 1; plan tests => 97; }
+BEGIN { $| = 1; plan tests => 98; }
 
 use XML::Generator ();
 ok(1);
@@ -268,6 +268,16 @@ ok($xml, '<foo><&#162;<?g?></foo>');
   $x = XML::Generator->new(':import');
   ok($w =~ /Useless use of/, 1); $w = '';
 }
+
+$x = XML::Generator->new();
+ok  
+$x->foo( sub {
+    map {
+        $x->bar( { arg => 'value'}, sub {
+            'data'
+        } )
+    } ( 1..5 );
+}) , '<foo><bar arg="value">data</bar><bar arg="value">data</bar><bar arg="value">data</bar><bar arg="value">data</bar><bar arg="value">data</bar></foo>';
 
 # test AUTOLOAD
 package Test1;
