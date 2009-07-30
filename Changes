@@ -1,5 +1,8 @@
 Revision history for Perl extension XML::Generator.
 
+1.03     Thu Jul 30 17:02:00 2009
+    - Version bump because somebody released an unauthorized XML-Generator-1.02
+
 1.01     Tue Jul 8  11:45:00 2007
 	- Documentation cleanup.
 

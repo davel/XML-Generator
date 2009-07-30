@@ -20,6 +20,9 @@ To get this:
 RECENT CHANGES
 ------ -------
 
+1.03     Thu Jul 30 17:02:00 2009
+    - Version bump because somebody released an unauthorized XML-Generator-1.02
+
 1.01     Tue Jul 8  11:45:00 2007
 	- Documentation cleanup.
 
@@ -35,6 +38,6 @@ RECENT CHANGES
 
 COPYRIGHT
 ---------
-Copyright 1999-2007 Benjamin Holzman. All rights reserved.
+Copyright 1999-2009 Benjamin Holzman. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
