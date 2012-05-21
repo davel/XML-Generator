@@ -1399,7 +1399,7 @@ sub escape {
     }
   } 
   if ($f & ESCAPE_HIGH_BIT) {
-    $_[0] =~ s/([\200-\377])/'&#'.ord($1).';'/ge;
+    $_[0] =~ s/([^\x00-\x7f])/'&#'.ord($1).';'/ge;
   }
   if ($f & ESCAPE_FILTER_INVALID_CHARS) {
     filter($_[0]);
