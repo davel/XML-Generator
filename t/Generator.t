@@ -265,7 +265,7 @@ $xml = $x->foo("\\<\242", $x->xmlpi('g'));
 ok($xml, '<foo><&#162;<?g?></foo>');
 
 $xml = $x->foo("\\<\x{2603}", $x->xmlpi('g'));
-ok($xml, '<foo><&#9731xxx;<?g?></foo>');
+ok($xml, '<foo><&#9731;<?g?></foo>');
 
 { my $w; local $SIG{__WARN__} = sub { $w .= $_[0] };
   $x = XML::Generator->new(':import');
