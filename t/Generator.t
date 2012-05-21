@@ -2,7 +2,7 @@
 
 use Test;
 
-BEGIN { $| = 1; plan tests => 100; }
+BEGIN { $| = 1; plan tests => 101; }
 
 use XML::Generator ();
 ok(1);
