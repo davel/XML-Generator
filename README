@@ -20,24 +20,13 @@ To get this:
 RECENT CHANGES
 ------ -------
 
-1.03     Thu Jul 30 17:02:00 2009
-    - Version bump because somebody released an unauthorized XML-Generator-1.02
+1.04     Fri Jul 15 08:35:00 2011
+        - Added the filter_invalid_chars option, which is turned on by default
+          under strict mode.
 
-1.01     Tue Jul 8  11:45:00 2007
-	- Documentation cleanup.
-
-1.0      Fri Jun 22 16:51:00 2007
-	- Fixed bug #23594, "Embedded escaping does not work as expected",
-	  reported by M. Zizka; clarified documentation and added 'even-entities'
-	  argument to 'escape' parameter.
-	- As part of above fix, supplying an unexpected true argument to 'escape'
-	  parameter results in warning. 
-	- Fixed bug #18609, "cdata also pretty-printed", reported by Daniel Schroeer.
-	- Fixed bug #18656, reported by Peter (Stig) Edwards; just removed single
-	  quotes around Tie::IxHash in require line.
 
 COPYRIGHT
 ---------
-Copyright 1999-2009 Benjamin Holzman. All rights reserved.
+Copyright 1999-2011 Benjamin Holzman. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.

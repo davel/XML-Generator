@@ -2,7 +2,7 @@
 
 use Test;
 
-BEGIN { $| = 1; plan tests => 97; }
+BEGIN { $| = 1; plan tests => 100; }
 
 use XML::Generator ();
 ok(1);
@@ -572,3 +572,24 @@ package TestEscapingEntities;
 use XML::Generator escape => 'always,even-entities', conformance => 'strict', pretty => 2;
 
 ::ok(tag("&gt;"), '<tag>&amp;gt;</tag>');
+
+package TestInvalidChars1;
+
+use XML::Generator filter_invalid_chars => '1';
+
+::ok(tag(map chr,
+         0, 0x1, 0x8, 0xB, 0xC, 0xE..0x1F,
+         0x7F..0x84, 0x86..0x9F), '<tag></tag>');
+
+package TestInvalidCharsUnderStrict;
+
+use XML::Generator ':strict';
+
+::ok(tag("\0"), '<tag></tag>');
+
+package TestInvalidCharsUnderStrict2;
+
+use XML::Generator ':strict', 'filter_invalid_chars' => 0;
+
+::ok(tag("\0"), "<tag>\0</tag>");
+

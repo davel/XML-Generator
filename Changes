@@ -1,7 +1,12 @@
 Revision history for Perl extension XML::Generator.
 
+1.04     Fri Jul 15 08:35:00 2011
+        - Added the filter_invalid_chars option, which is turned on by default
+          under strict mode.
+
 1.03     Thu Jul 30 17:02:00 2009
-    - Version bump because somebody released an unauthorized XML-Generator-1.02
+        - Version bump because somebody released an unauthorized
+          XML-Generator-1.02
 
 1.01     Tue Jul 8  11:45:00 2007
 	- Documentation cleanup.

@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use vars qw/$VERSION $AUTOLOAD/;
 
-$VERSION = '1.03';
+$VERSION = '1.04';
 
 =head1 NAME
 
@@ -380,7 +380,17 @@ and xml to allow generation of processing instructions, comments, XML
 declarations, DTD's, character data sections and "final" XML documents,
 respectively.
 
+Invalid characters (http://www.w3.org/TR/xml11/#charsets) will be filtered
+out.  To disable this behavior, supply the 'filter_invalid_chars' option with
+the value 0.
+
 See L<"XML CONFORMANCE"> and L<"SPECIAL TAGS"> for more information.
+
+=head2 filterInvalidChars, filter_invalid_chars
+
+Set this to a 1 to enable filtering of invalid characters, or to 0 to disable
+the filtering.  See http://www.w3.org/TR/xml11/#charsets for the set of valid
+characters.
 
 =head2 allowedXMLTags, allowed_xml_tags
 
@@ -468,6 +478,7 @@ my @optionsToInit = qw(
   version
   empty
   qualified_attributes
+  filter_invalid_chars
 );
 
 my %tag_factory;
@@ -561,13 +572,18 @@ sub new {
 				  () } )
     : /^allowedXMLTags$/      ? 'allowed_xml_tags'
     : /^qualifiedAttributes$/ ? 'qualified_attributes'
+    : /^filterInvalidChars$/  ? 'filter_invalid_chars'
     : $_
     } @_;
 
   # We used to only accept certain options, but unfortunately this
   # means that subclasses can't extend the list. As such, we now 
   # just make sure our default options are defined.
-  for (@optionsToInit) { $options{$_} ||= '' }
+  for (@optionsToInit) {
+    if (not defined $options{$_}) {
+       $options{$_} = '';
+    }
+  }
 
   if ($options{'dtd'}) {
     $options{'dtdtree'} = $class->XML::Generator::util::parse_dtd($options{'dtd'});
@@ -611,6 +627,11 @@ sub new {
     Carp::croak "namespace must be an array reference";
   }
 
+  if ($options{'conformance'} eq 'strict' &&
+      $options{'filter_invalid_chars'} eq '') {
+    $options{'filter_invalid_chars'} = 1;
+  }
+
   my $this = bless \%options, $class;
   $tag_factory{$this} = XML::Generator::util::c_tag($this);
   return $this;
@@ -651,6 +672,9 @@ tags beginning with 'xml' are allowed (see L<"SPECIAL TAGS">). Note
 that you can also supply an explicit list of allowed tags with the
 'allowed_xml_tags' option.
 
+Also, the filter_invalid_chars option is automatically set to 1 unless it
+is explicitly set to 0.
+
 =head1 SPECIAL TAGS
 
 The following special tags are available when running under strict
@@ -683,7 +707,10 @@ sub xmlpi {
      my %atts = @_;
      while (my($k, $v) = each %atts) {
        $this->XML::Generator::util::ck_syntax($k);
-       XML::Generator::util::escape($v, XML::Generator::util::ESCAPE_ATTR() | $this->{'escape'});
+       XML::Generator::util::escape($v,
+                XML::Generator::util::ESCAPE_FILTER_INVALID_CHARS() |
+                XML::Generator::util::ESCAPE_ATTR() |
+                $this->{'escape'});
        $xml .= qq{ $k="$v"};
      }
   }
@@ -710,6 +737,7 @@ sub xmlcmnt {
 
   # double dashes are illegal; change them to '&#45;&#45;'
   $xml =~ s/--/&#45;&#45;/g;
+  XML::Generator::util::filter($xml);
   $xml = "<!-- $xml -->";
 
   return XML::Generator::comment->new([$xml]);
@@ -834,6 +862,7 @@ sub xmlcdata {
 
   # ]]> is not allowed; change it to ]]&gt;
   $xml =~ s/]]>/]]&gt;/g;
+  XML::Generator::util::filter($xml);
   $xml = "<![CDATA[$xml]]>";
 
   return XML::Generator::cdata->new([$xml]);
@@ -1039,6 +1068,7 @@ use constant ESCAPE_APOS     => 1<<3;
 use constant ESCAPE_ATTR     => 1<<4;
 use constant ESCAPE_GT       => 1<<5;
 use constant ESCAPE_EVEN_ENTITIES => 1<<6;
+use constant ESCAPE_FILTER_INVALID_CHARS => 1<<7;
 
 sub parse_args {
   # this parses the args and returns a namespace and attr
@@ -1103,6 +1133,10 @@ sub c_tag {
              : $arg->{'pretty'}
                ? " " x $arg->{'pretty'}
                : "";
+  if ($arg->{'filter_invalid_chars'}) {
+    $escape |= ESCAPE_FILTER_INVALID_CHARS;
+  }
+
   my $blessClass = $indent ? 'XML::Generator::pretty' : 'XML::Generator::overload';
 
   return sub {
@@ -1367,7 +1401,12 @@ sub escape {
   if ($f & ESCAPE_HIGH_BIT) {
     $_[0] =~ s/([\200-\377])/'&#'.ord($1).';'/ge;
   }
+  if ($f & ESCAPE_FILTER_INVALID_CHARS) {
+    filter($_[0]);
+  }
 }
+
+sub filter { $_[0] =~ tr/\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0B\x0C\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F\x7F\x80\x81\x82\x83\x84\x86\x87\x88\x89\x8A\x8B\x8C\x8D\x8E\x8F\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9A\x9B\x9C\x9D\x9E\x9F//d }
 
 # verify syntax of supplied name; croak if it's not valid.
 # rules: 1. name must begin with a letter or an underscore
